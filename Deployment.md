@@ -2,6 +2,29 @@
 
 Bu dokümanda DevStudio platformunun bulut dağıtım adımları ve geçmişi kayıt altına alınacaktır. Kural 3 uyarınca kullanıcı onayı olmadan dağıtım yapılamaz.
 
+## Dağıtım Geçmişi
+
 | Sürüm | Tarih | Ortam | Değişiklik Özeti | Durum |
 | :--- | :--- | :--- | :--- | :--- |
+| v1.0.0 | 2026-11-17 | Production (`devstudio.bugunai.com`) | İlk Canlı Yayın: Google Cloud Run (`europe-west1`), NextAuth v5 kimlik doğrulama, Cloud SQL PostgreSQL (`devstudio`), AES-256 Vault, Çift Dilli i18n, Mobil-First Chat & İnteraktif Onay Kartları | Dağıtımda / Yayında |
 | v0.1.0 | 2026-11-17 | Tasarım & Mimari | Proje analiz ve mimari spesifikasyonu hazırlandı | Analiz Aşamasında |
+
+## Dağıtım Komutları
+
+```bash
+# Cloud Run Dağıtımı
+gcloud run deploy devstudio \
+  --source . \
+  --project dernektebugun-492221 \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --env-vars-file env.cloudrun.yaml \
+  --quiet
+
+# Özel Alan Adı Eşleme (Domain Mapping)
+gcloud beta run domain-mappings create \
+  --service devstudio \
+  --domain devstudio.bugunai.com \
+  --project dernektebugun-492221 \
+  --region europe-west1
+```
