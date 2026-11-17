@@ -5,3 +5,4 @@ node_modules/
 .env.*
 env.secret.yaml
 *.log
+env.cloudrun.yaml
