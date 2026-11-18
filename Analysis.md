@@ -410,3 +410,7 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
      - Gemini 3.5 Flash Lite terminal çıktısını inceleyip analizi eksiksiz tamamladı.
 2. **GitHub Senkronizasyonu:**
    - Hem `Roadmap.md` commit'i (`ab90c8c`) hem de REST API mimari güncellemesi commit'i (`1f33945`) GitHub `origin main` deposuna başarıyla push edildi.
+-e 
+## Analiz: Arayüze Görsel ve Dosya Ekleme Özelliği (Attachment)
+- **Sorun:** Kullanıcının telefondan veya web arayüzünden ekran görüntüsü/fotoğraf paylaşamaması, görsel hataların iletilmesini zorlaştırıyor.
+- **Çözüm:** Mesaj giriş alanına bir dosya/fotoğraf ekleme (attachment) butonu ve arayüzü entegre edilecek.
