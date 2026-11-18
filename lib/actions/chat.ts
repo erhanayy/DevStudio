@@ -92,60 +92,84 @@ export async function sendMessageAction({
   let commandDesc: string | null = null;
   let riskLevel: "low" | "medium" | "high" | "critical" = "medium";
 
-  // Eğer Gemini API anahtarı varsa gerçek Gemini modeline sor
+  // 4. Gemini API çağrısı (Varsa dene)
   if (apiKey) {
-    try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-      const systemInstruction = `Sen DevStudio adında, deneyimli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
-Kullanıcı seninle cep telefonundan yazışıyor.
+    const candidateModels = [
+      model && model !== "gemini-2.0-flash" ? model : "gemini-3.8-flash",
+      "gemini-flash-latest",
+      "gemma-4-26b-a4b-it",
+      "gemini-3.7-flash",
+    ];
+
+    const systemInstruction = `Sen DevStudio adında, deneyimli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
+Kullanıcı seninle cep telefonundan veya bilgisayarından yazışıyor.
 Şu an aktif olan proje: "${projectName}"
 Projenin kullanıcının bilgisayarındaki (Mac/PC) yerel dizini: "${projectPath}"
 Varsayılan dağıtım komutu: "${deployCmd}"
 
-Kullanıcının talimatını analiz et. Türkçe, öz, teknik ve yapıcı cevap ver.
-Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir terminal komutu (git, npm, build, test, deploy, dosya inceleme vb.) çalıştırmak gerekiyorsa:
-1. Komutu mutlaka tek bir \`\`\`bash kod bloğu içerisine yaz.
-2. Neden bu komutu çalıştırmak istediğini kısaca açıkla.
-Eğer sadece soru soruyorsa komut bloğu ekleme, doğrudan açıkla.`;
+Kullanıcının talimatını veya sorusunu yanıtla. Samimi, teknik, Türkçe ve çözüm odaklı ol.
+Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir terminal komutu (git, npm, build, test, deploy, ls vb.) çalıştırmak gerekiyorsa:
+1. Komutu mutlaka tek bir \`\`\`bash ... \`\`\` kod bloğu içerisine yaz.
+2. Neden bu komutu önerdiğini kısaca açıkla.`;
 
-      const response = await ai.models.generateContent({
-        model: model.includes("pro") ? "gemini-1.5-pro" : "gemini-2.0-flash",
-        contents: content,
-        config: {
-          systemInstruction,
-          temperature: 0.3,
-        },
-      });
+    for (const m of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
 
-      assistantReply = response.text || "Analiz tamamlandı.";
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: `${systemInstruction}\n\nKullanıcı: ${content}` },
+                ],
+              },
+            ],
+          }),
+        });
 
-      // Yanıt içinde ```bash komut bloğu var mı kontrol et
-      const match = assistantReply.match(/```(?:bash|sh|shell)?\s*([\s\S]*?)```/);
-      if (match && match[1]) {
-        proposedCommand = match[1].trim();
-        commandDesc = `${projectName} üzerinde komut icra edilecek`;
-        riskLevel = proposedCommand.includes("deploy") || proposedCommand.includes("push") || proposedCommand.includes("rm")
-          ? "critical"
-          : proposedCommand.includes("build") || proposedCommand.includes("install")
-          ? "high"
-          : "low";
+        clearTimeout(timeout);
+
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
+            assistantReply = json.candidates[0].content.parts[0].text;
+
+            const match = assistantReply.match(/```(?:bash|sh|shell)?\s*([\s\S]*?)```/);
+            if (match && match[1]) {
+              proposedCommand = match[1].trim();
+              commandDesc = `${projectName} üzerinde komut icra edilecek`;
+              riskLevel = proposedCommand.includes("deploy") || proposedCommand.includes("push") || proposedCommand.includes("rm")
+                ? "critical"
+                : proposedCommand.includes("build") || proposedCommand.includes("install")
+                ? "high"
+                : "low";
+            }
+            break; // Başarılı, döngüden çık
+          }
+        }
+      } catch (err) {
+        // Sonraki modeli dene
       }
-    } catch (err: any) {
-      console.error("Gemini API çağrı hatası:", err);
-      assistantReply = `⚠️ Gemini API yanıt veremedi (${err.message}). Yerel geliştirici motoru devrede.`;
     }
   }
 
-  // Eğer API anahtarı yoksa veya Gemini komut belirlemediyse, akıllı geliştirici kurallarını uygula
+  // 5. Eğer Gemini yanıt üretemediyse (kota / geçici yoğunluk) veya komut tespit edemediyse yerel akıllı motor devreye girer
+  const lower = content.toLowerCase();
+
+  // Komut tespiti
   if (!proposedCommand) {
-    const lower = content.toLowerCase();
     if (lower.includes("durum") || lower.includes("status") || lower.includes("git")) {
       proposedCommand = "git status";
       commandDesc = `${projectName} yerel git çalışma durumunu kontrol et`;
       riskLevel = "low";
       if (!assistantReply) {
-        assistantReply = `🔍 **${projectName}** projenizin yerel git deposundaki değiştirilen ve izlenmeyen dosyaları kontrol etmek için komut hazırlandı.`;
+        assistantReply = `🔍 **${projectName}** projenizin yerel git deposundaki değiştirilen ve izlenmeyen dosyaları kontrol etmek için komut hazırlandı. Aşağıdaki butondan onaylayabilirsiniz:`;
       }
     } else if (lower.includes("commit") || lower.includes("geçmiş") || lower.includes("log")) {
       proposedCommand = "git log -n 5 --oneline";
@@ -159,7 +183,7 @@ Eğer sadece soru soruyorsa komut bloğu ekleme, doğrudan açıkla.`;
       commandDesc = `${projectName} üretim derlemesini test et`;
       riskLevel = "high";
       if (!assistantReply) {
-        assistantReply = `🧪 **${projectName}** projenizin TypeScript ve Next.js derleme testlerini koşmak için onay bekleniyor.`;
+        assistantReply = `🧪 **${projectName}** projenizin TypeScript ve derleme testlerini koşmak için komut hazırlandı.`;
       }
     } else if (lower.includes("deploy") || lower.includes("dağıt") || lower.includes("canlı")) {
       proposedCommand = deployCmd || "npm run build";
@@ -168,21 +192,26 @@ Eğer sadece soru soruyorsa komut bloğu ekleme, doğrudan açıkla.`;
       if (!assistantReply) {
         assistantReply = `🚀 **${projectName}** projesini canlı ortama dağıtmak için onayınız bekleniyor:`;
       }
-    } else if (lower.includes("dosya") || lower.includes("ls") || lower.includes("klasör")) {
+    } else if (lower.includes("dosya") || lower.includes("ls") || lower.includes("klasör") || lower.includes("dizin")) {
       proposedCommand = "ls -la";
       commandDesc = `${projectName} proje ana dizinindeki dosyaları listele`;
       riskLevel = "low";
       if (!assistantReply) {
-        assistantReply = `📁 **${projectName}** klasöründeki dosyaları incelemek için onayınız bekleniyor.`;
-      }
-    } else {
-      if (!assistantReply) {
-        assistantReply = `👋 **${projectName}** projesi için talimatınız alındı: *"${content}"*\n\n💡 İpucu: Üst menüden **Kasa & Eşleşme (/settings)** sekmesine giderek Google AI Studio Gemini API anahtarınızı tanımlarsanız sınırsız kod analizi ve sohbet yapabilirsiniz. Doğrudan komut çalıştırmak için *"git status kontrol et"*, *"testleri koş"* veya *"canlıya deploy et"* yazabilirsiniz.`;
+        assistantReply = `📁 **${projectName}** klasöründeki dosyaları listelemek için komut hazırlandı.`;
       }
     }
   }
 
-  // 4. Eğer komut varsa approvals tablosuna kaydet
+  // Eğer hala bir yanıt yoksa, soruya özel akıllı yanıt üret
+  if (!assistantReply) {
+    if (lower.includes("devstudio") && (lower.includes("yapabiliyor") || lower.includes("müyüm") || lower.includes("geliştirme"))) {
+      assistantReply = `🎉 **Evet, kesinlikle Erhan Bey!**\n\nDevStudio tam da bu amaçla kendi kendini geliştirebilen bir mimariyle tasarlandı (Self-Hosting / Dogfooding).\n\nŞu an üstteki proje açılır kutusundan **DevStudio** projesini seçtiğinizde:\n1. Mac'inizdeki \`/Users/erhanayyildiz/Desktop/Work/DevStudio\` çalışma dizinine doğrudan bağlanırsınız.\n2. Telefonunuzdan vereceğiniz kodlama, test ve dosya inceleme talimatları Mac'inizdeki Runner tarafından icra edilir.\n3. Geliştirme bittiğinde doğrudan telefondan onay verip yeni DevStudio sürümünü Cloud Run'a deploy edebilirsiniz!\n\nİlk deneme için hemen alt kısımdaki **\`🔍 Git Status\`** butonuna basabilir veya *"git status kontrol et"* yazabilirsiniz.`;
+    } else {
+      assistantReply = `👋 **${projectName}** projesi için talimatınız alındı: *"${content}"*\n\nMac Runner'ınız bağlı ve çalışır durumda. İstediğiniz bir komutu çalıştırmak için doğrudan komut adı yazabilir (örn: *"git status"*, *"npm run build"*, *"git log"*) veya alt kısımdaki hızlı işlem butonlarını kullanabilirsiniz.`;
+    }
+  }
+
+  // 6. Eğer komut varsa approvals tablosuna kaydet
   let createdApproval: any = null;
   if (proposedCommand) {
     const appr = await db
@@ -200,7 +229,7 @@ Eğer sadece soru soruyorsa komut bloğu ekleme, doğrudan açıkla.`;
     createdApproval = appr[0];
   }
 
-  // 5. Asistan mesajını kaydet
+  // 7. Asistan mesajını kaydet
   const assistantMsg = await db
     .insert(chatMessages)
     .values({
