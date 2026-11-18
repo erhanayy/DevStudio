@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ShieldAlert, CheckCircle2, XCircle, Terminal, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShieldAlert, CheckCircle2, XCircle, Terminal, AlertTriangle, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/context";
 
 interface ApprovalCardProps {
@@ -9,7 +9,7 @@ interface ApprovalCardProps {
   command: string;
   description: string;
   riskLevel: "low" | "medium" | "high" | "critical";
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "running" | "completed" | "failed";
   onApprove: (id: string) => Promise<void>;
   onReject: (id: string) => Promise<void>;
 }
@@ -26,6 +26,10 @@ export function ApprovalCard({
   const { t } = useTranslation();
   const [status, setStatus] = useState(initialStatus);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
 
   const handleApprove = async () => {
     setLoading(true);
@@ -83,7 +87,7 @@ export function ApprovalCard({
         <code>{command}</code>
       </div>
 
-      {/* Aksiyon Butonları (Mobilde Parmakla Dokunmaya Uygun Min 44px) */}
+      {/* Aksiyon Butonları & Canlı Durum Bildirimi */}
       {status === "pending" ? (
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
@@ -93,11 +97,11 @@ export function ApprovalCard({
             className="min-h-[44px] py-2.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{t("chat.approveBtn")}</span>
+                <span>{t("chat.approveBtn") || "Onayla ve Çalıştır"}</span>
               </>
             )}
           </button>
@@ -109,17 +113,27 @@ export function ApprovalCard({
             className="min-h-[44px] py-2.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-extrabold text-xs border border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <XCircle className="w-4 h-4 text-rose-400" />
-            <span>{t("chat.rejectBtn")}</span>
+            <span>{t("chat.rejectBtn") || "Reddet"}</span>
           </button>
         </div>
-      ) : status === "approved" ? (
-        <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Bu komut onaylandı ve çalıştırılıyor...</span>
+      ) : status === "approved" || status === "running" ? (
+        <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+          <span>⚡ Mac Runner üzerinde çalıştırılıyor...</span>
+        </div>
+      ) : status === "completed" ? (
+        <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>✅ Komut başarıyla tamamlandı</span>
+        </div>
+      ) : status === "failed" ? (
+        <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center justify-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-400" />
+          <span>❌ Komut hata ile sonlandı</span>
         </div>
       ) : (
-        <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center justify-center gap-2">
-          <XCircle className="w-4 h-4" />
+        <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
+          <XCircle className="w-4 h-4 text-slate-500" />
           <span>Bu işlem kullanıcı tarafından reddedildi.</span>
         </div>
       )}

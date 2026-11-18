@@ -29,6 +29,7 @@ if (!token) {
 }
 
 const deviceName = `${os.hostname()} (${os.platform()} ${os.arch()})`;
+const activeTasks = new Set();
 
 console.log("\n=======================================================");
 console.log("🚀 DevStudio Local Runner (Mac & Windows)");
@@ -53,6 +54,40 @@ async function sendAction(action, payload = {}) {
     return { ok: true, data };
   } catch (err) {
     return { ok: false, error: err.message };
+  }
+}
+
+async function handlePendingTasks(tasks) {
+  if (!tasks || tasks.length === 0) return;
+
+  for (const task of tasks) {
+    if (activeTasks.has(task.approvalId)) continue;
+    activeTasks.add(task.approvalId);
+
+    console.log(`\n⚡ [${task.projectName}] Onaylanan komut icra ediliyor:`);
+    console.log(`   > ${task.command}`);
+    console.log(`   📂 Dizin: ${task.projectPath}`);
+
+    await sendAction("task_started", { approvalId: task.approvalId });
+
+    exec(
+      task.command,
+      { cwd: task.projectPath, maxBuffer: 1024 * 1024 * 5 },
+      async (error, stdout, stderr) => {
+        const output = (stdout || "") + (stderr ? (stdout ? "\n" : "") + stderr : "");
+        const exitCode = error ? (typeof error.code === "number" ? error.code : 1) : 0;
+
+        console.log(`\n📤 Çıktı (${output.length} bayt, kod: ${exitCode}) DevStudio sunucusuna iletiliyor...`);
+        await sendAction("task_completed", {
+          approvalId: task.approvalId,
+          output: output.trim() || "(Boş çıktı)",
+          exitCode,
+        });
+
+        activeTasks.delete(task.approvalId);
+        console.log(`✅ [${task.projectName}] İşlem tamamlandı ve mobil ekrana aktarıldı.\n`);
+      }
+    );
   }
 }
 
@@ -86,15 +121,23 @@ async function init() {
   console.log("💡 Çıkış yapmak için Ctrl+C tuşlarına basabilirsiniz.");
   console.log("=======================================================\n");
 
-  // 2. Canlı Heartbeat (Her 8 saniyede bir)
+  if (res.data?.pendingTasks) {
+    await handlePendingTasks(res.data.pendingTasks);
+  }
+
+  // 2. Canlı Heartbeat ve Görev Yoklama (Her 4 saniyede bir)
   setInterval(async () => {
     const hb = await sendAction("heartbeat");
     if (hb.ok) {
-      process.stdout.write(`\r💓 Canlı bağlantı aktif [${new Date().toLocaleTimeString("tr-TR")}]`);
+      if (hb.data?.pendingTasks && hb.data.pendingTasks.length > 0) {
+        await handlePendingTasks(hb.data.pendingTasks);
+      } else {
+        process.stdout.write(`\r💓 Canlı bağlantı aktif [${new Date().toLocaleTimeString("tr-TR")}]`);
+      }
     } else {
       process.stdout.write(`\r⚠️  Bağlantı koptu, yeniden deneniyor... [${new Date().toLocaleTimeString("tr-TR")}]`);
     }
-  }, 8000);
+  }, 4000);
 }
 
 // 3. Temiz Çıkış (Graceful Shutdown)

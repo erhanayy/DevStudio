@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  integer,
 } from "drizzle-orm/pg-core";
 
 // 1. Kullanıcılar
@@ -124,10 +125,15 @@ export const approvals = pgTable("approvals", {
   sessionId: uuid("session_id")
     .references(() => chatSessions.id, { onDelete: "cascade" })
     .notNull(),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
   command: text("command").notNull(),
   description: text("description").notNull(),
   riskLevel: varchar("risk_level", { length: 20 }).default("medium").notNull(), // 'low', 'medium', 'high', 'critical'
-  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'approved', 'rejected'
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'approved', 'rejected', 'running', 'completed', 'failed'
+  output: text("output"),
+  exitCode: integer("exit_code"),
   respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -11,14 +11,17 @@ import {
   Bot,
   User,
   Radio,
-  Copy,
   Check,
-  Play,
-  RotateCcw,
 } from "lucide-react";
 import { ApprovalCard } from "./approval-card";
 import { useTranslation } from "@/lib/i18n/context";
 import { toast } from "sonner";
+import {
+  sendMessageAction,
+  approveApprovalAction,
+  rejectApprovalAction,
+  getApprovalStatusAction,
+} from "@/lib/actions/chat";
 
 interface Project {
   id: string;
@@ -40,7 +43,7 @@ interface Message {
     command: string;
     description: string;
     riskLevel: "low" | "medium" | "high" | "critical";
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "running" | "completed" | "failed";
   };
 }
 
@@ -58,7 +61,10 @@ export function ChatView({
   const { t } = useTranslation();
   const [projects] = useState<Project[]>(initialProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
-    initialProjects.find((p) => p.isDefault)?.id || initialProjects[0]?.id || ""
+    initialProjects.find((p) => p.slug === "devstudio")?.id ||
+    initialProjects.find((p) => p.isDefault)?.id ||
+    initialProjects[0]?.id ||
+    ""
   );
   const [selectedModel, setSelectedModel] = useState<string>("gemini-2.0-flash");
   const [input, setInput] = useState<string>("");
@@ -67,7 +73,7 @@ export function ChatView({
       id: "welcome",
       role: "assistant",
       content:
-        "👋 Merhaba Erhan! DevStudio mobil yapay zeka mühendisine hoş geldin. AllTripX veya BurstaBugun projen üzerinde geliştirmek istediğin özelliği yaz, ister ses kaydı at, ister ekran görüntüsü yükle. Ben Mac'indeki yerel Runner ile kodlamayı yapıp testleri koşmaya hazırım!",
+        "👋 Merhaba Erhan! DevStudio mobil yapay zeka mühendisine hoş geldin. AllTripX, BurstaBugun veya DevStudio projen üzerinde çalıştırmak istediğin komutları yazabilir, analiz isteyebilirsin. Mac'indeki yerel Runner komutları canlı çalıştırmak için hazır!",
       timestamp: new Date(),
     },
   ]);
@@ -91,9 +97,9 @@ export function ChatView({
     const userText = input.trim();
     setInput("");
 
-    // Kullanıcı mesajı ekle
+    // Kullanıcı mesajını ekle
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: "user_" + Date.now(),
       role: "user",
       content: userText,
       timestamp: new Date(),
@@ -101,45 +107,103 @@ export function ChatView({
     setMessages((prev) => [...prev, userMsg]);
     setIsSending(true);
 
-    // Simüle edilen ajan yanıtı & akışı (Gerçek bağlantı öncesi örnek akış ve Approval kartı demosu)
-    setTimeout(() => {
-      // Örnek analiz mesajı
-      const agentMsg: Message = {
-        id: (Date.now() + 1).toString(),
+    try {
+      const res = await sendMessageAction({
+        projectId: selectedProjectId,
+        model: selectedModel,
+        content: userText,
+      });
+
+      const assistantMsg: Message = {
+        id: res.assistantMessage.id,
         role: "assistant",
-        content: `🔍 **${selectedProject?.name || "Proje"}** inceleniyor...\n\nTalimatınız alındı: *"${userText}"*\n\n1. İlgili dosyalar tespit edildi.\n2. Gerekli kod güncellemeleri hazırlandı.\n3. Canlı dağıtım öncesi onayınız bekleniyor:`,
-        timestamp: new Date(),
-        approval: {
-          id: "appr_" + Date.now(),
-          command: selectedProject?.deployCommand || "npm run build && git push origin main",
-          description: "Kod değişikliklerini doğrula, derle ve canlı sunucuya dağıt",
-          riskLevel: "critical",
-          status: "pending",
-        },
+        content: res.assistantMessage.content,
+        timestamp: new Date(res.assistantMessage.createdAt),
+        approval: res.approval
+          ? {
+              id: res.approval.id,
+              command: res.approval.command,
+              description: res.approval.description,
+              riskLevel: res.approval.riskLevel,
+              status: res.approval.status,
+            }
+          : undefined,
       };
-      setMessages((prev) => [...prev, agentMsg]);
+
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err: any) {
+      toast.error("Mesaj gönderilemedi: " + (err?.message || "Bilinmeyen hata"));
+    } finally {
       setIsSending(false);
-    }, 1200);
+    }
   };
 
   const handleApprove = async (approvalId: string) => {
-    toast.success("İşlem onaylandı! Runner bilgisayarınızda komutu çalıştırıyor...");
-    // Mesaj akışına runner çıktısı ekle
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "runner",
-          content: `⚡ **Runner Çıktısı (MacBook):**\n\`\`\`bash\n✓ Compiled successfully in 2.3s\n✓ Route checking complete: 0 errors\n✓ Git commit: "feat: mobile update via DevStudio"\n✓ Cloud Run Revision deployed: devstudio-00001\n🚀 Canlıda ve aktif!\n\`\`\``,
-          timestamp: new Date(),
-        },
-      ]);
-    }, 1500);
+    toast.success("İşlem onaylandı! Mac Runner komutu devralıyor...");
+
+    // UI durumunu approved yap
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.approval?.id === approvalId
+          ? { ...m, approval: { ...m.approval, status: "approved" } }
+          : m
+      )
+    );
+
+    try {
+      await approveApprovalAction(approvalId);
+
+      // Runner çıktısını yokla (Polling)
+      const pollTimer = setInterval(async () => {
+        const statusRes = await getApprovalStatusAction(approvalId);
+        if (statusRes && (statusRes.status === "completed" || statusRes.status === "failed")) {
+          clearInterval(pollTimer);
+
+          // Approval kartını tamamlandı yap
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.approval?.id === approvalId
+                ? { ...m, approval: { ...m.approval, status: statusRes.status as any } }
+                : m
+            )
+          );
+
+          // Terminal çıktısını chat akışına ekle
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: "runner_" + Date.now(),
+              role: "runner",
+              content: `⚡ **Runner Çıktısı (MacBook):**\n\`\`\`bash\n${statusRes.output || "(Boş çıktı)"}\n\`\`\`\n*Durum: ${statusRes.exitCode === 0 ? "✅ Başarılı (0)" : "❌ Hata (" + statusRes.exitCode + ")" }*`,
+              timestamp: new Date(),
+            },
+          ]);
+
+          if (statusRes.exitCode === 0) {
+            toast.success("Komut başarıyla tamamlandı!");
+          } else {
+            toast.error("Komut hata ile sonlandı!");
+          }
+        }
+      }, 1500);
+
+      // Maksimum 2 dakika bekle
+      setTimeout(() => clearInterval(pollTimer), 120000);
+    } catch (err: any) {
+      toast.error("Onay iletilemedi: " + err.message);
+    }
   };
 
   const handleReject = async (approvalId: string) => {
-    toast.info("İşlem reddedildi. Komut durduruldu.");
+    toast.info("İşlem reddedildi.");
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.approval?.id === approvalId
+          ? { ...m, approval: { ...m.approval, status: "rejected" } }
+          : m
+      )
+    );
+    await rejectApprovalAction(approvalId).catch(() => {});
   };
 
   return (
@@ -191,7 +255,7 @@ export function ChatView({
         <button
           type="button"
           onClick={() => {
-            navigator.clipboard.writeText(`npx devstudio-runner --token=${runnerToken}`);
+            navigator.clipboard.writeText(`node devstudio-runner.mjs --token=${runnerToken}`);
             toast.success("Runner komutu kopyalandı! Mac veya Windows terminalinize yapıştırın.");
           }}
           className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
@@ -275,6 +339,13 @@ export function ChatView({
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
           <button
             type="button"
+            onClick={() => setInput("git status kontrol et")}
+            className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 cursor-pointer"
+          >
+            🔍 Git Status
+          </button>
+          <button
+            type="button"
             onClick={() => setInput("Projede son durumu kontrol et ve testleri çalıştır")}
             className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 cursor-pointer"
           >
@@ -282,17 +353,17 @@ export function ChatView({
           </button>
           <button
             type="button"
-            onClick={() => setInput("Canlıya dağıtım yap ve test linkini ver")}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 cursor-pointer"
-          >
-            🚀 Canlıya Deploy Et
-          </button>
-          <button
-            type="button"
             onClick={() => setInput("GitHub'daki son commit geçmişini incele")}
             className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 cursor-pointer"
           >
             📜 Git Geçmişi
+          </button>
+          <button
+            type="button"
+            onClick={() => setInput("Canlıya dağıtım yap ve test linkini ver")}
+            className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 cursor-pointer"
+          >
+            🚀 Canlıya Deploy Et
           </button>
         </div>
 
@@ -303,7 +374,7 @@ export function ChatView({
             type="button"
             onClick={() => toast.info("Ekran görüntüsü yükleme penceresi açılıyor...")}
             className="w-11 h-11 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white shrink-0 transition-all cursor-pointer"
-            title={t("chat.attachFile")}
+            title={t("chat.attachFile") || "Dosya Ekle"}
           >
             <Paperclip className="w-5 h-5" />
           </button>
@@ -314,7 +385,7 @@ export function ChatView({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={t("chat.placeholder")}
+              placeholder={t("chat.placeholder") || "Talimatınızı yazın (Örn: git status kontrol et)..."}
               className="w-full h-11 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/40 transition-all"
             />
           </div>
