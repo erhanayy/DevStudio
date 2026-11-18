@@ -20,7 +20,6 @@ import {
 import { ApprovalCard } from "./approval-card";
 import { useTranslation } from "@/lib/i18n/context";
 import { toast } from "sonner";
-import { approveApprovalAction, rejectApprovalAction, getApprovalStatusAction } from "@/lib/actions/chat";
 
 interface Project {
   id: string;
@@ -110,7 +109,11 @@ export function ChatView({
 
     const interval = setInterval(async () => {
       try {
-        const statusRes = await getApprovalStatusAction(activeAppr.id);
+        const resp = await fetch(
+          `/api/chat?action=approval_status&approvalId=${activeAppr.id}&projectId=${selectedProjectId}`
+        );
+        if (!resp.ok) return;
+        const statusRes = await resp.json();
         if (
           statusRes &&
           (statusRes.status === "completed" || statusRes.status === "failed") &&
@@ -263,42 +266,59 @@ export function ChatView({
 
   // Onaylama & Sunucu Otonom Yürütme Döngüsü (Server-Side Atomic Pipeline)
   const handleApprove = async (approvalId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.approval?.id === approvalId
-          ? { ...m, approval: { ...m.approval, status: "approved" } }
-          : m
-      )
-    );
-
     try {
-      await approveApprovalAction(approvalId);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", approvalId }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Sunucu onayı kabul etmedi");
+      }
+
+      // SADECE sunucu isteği başarıyla kabul ettiğinde kartı "approved" yap
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.approval?.id === approvalId
+            ? { ...m, approval: { ...m.approval, status: "approved" } }
+            : m
+        )
+      );
       toast.info("Komut Mac Runner'a iletildi, çubuk çalışıyor...");
 
-      // Runner ve Sunucu Otonom Analizini yokla
+      // Runner ve Sunucu Otonom Analizini yokla (REST polling)
       const pollTimer = setInterval(async () => {
-        const statusRes = await getApprovalStatusAction(approvalId);
-
-        // Sunucu analizi bitirdiğinde (status completed veya failed VE analysis doluysa)
-        if (
-          statusRes &&
-          (statusRes.status === "completed" || statusRes.status === "failed") &&
-          statusRes.analysis
-        ) {
-          clearInterval(pollTimer);
-
-          // 1. Approval kartını tamamlandı yap (çubuk %100 olur)
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.approval?.id === approvalId
-                ? { ...m, approval: { ...m.approval, status: statusRes.status as any } }
-                : m
-            )
+        try {
+          const resp = await fetch(
+            `/api/chat?action=approval_status&approvalId=${approvalId}&projectId=${selectedProjectId}`
           );
+          if (!resp.ok) return;
+          const statusRes = await resp.json();
 
-          // 2. Projenin güncel sohbet geçmişini tek seferde sunucudan çekip ekrana koy!
-          await loadProjectChat(selectedProjectId, activeSessionId);
-          toast.success("Komut ve analiz tek seferde tamamlandı!");
+          // Sunucu analizi bitirdiğinde (status completed veya failed VE analysis doluysa)
+          if (
+            statusRes &&
+            (statusRes.status === "completed" || statusRes.status === "failed") &&
+            statusRes.analysis
+          ) {
+            clearInterval(pollTimer);
+
+            // 1. Approval kartını tamamlandı yap (çubuk %100 olur)
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.approval?.id === approvalId
+                  ? { ...m, approval: { ...m.approval, status: statusRes.status as any } }
+                  : m
+              )
+            );
+
+            // 2. Projenin güncel sohbet geçmişini tek seferde sunucudan çekip ekrana koy!
+            await loadProjectChat(selectedProjectId, activeSessionId);
+            toast.success("Komut ve analiz tek seferde tamamlandı!");
+          }
+        } catch (e) {
+          console.error("Poller fetch error:", e);
         }
       }, 1500);
 
@@ -309,15 +329,23 @@ export function ChatView({
   };
 
   const handleReject = async (approvalId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.approval?.id === approvalId
-          ? { ...m, approval: { ...m.approval, status: "rejected" } }
-          : m
-      )
-    );
     try {
-      await rejectApprovalAction(approvalId);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", approvalId }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Sunucu işlemi reddedemedi");
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.approval?.id === approvalId
+            ? { ...m, approval: { ...m.approval, status: "rejected" } }
+            : m
+        )
+      );
       toast.info("İşlem reddedildi.");
     } catch (err: any) {
       toast.error("Reddedilemedi: " + err.message);

@@ -19,6 +19,29 @@ export async function GET(req: Request) {
     const sessionId = searchParams.get("sessionId");
     const action = searchParams.get("action");
 
+    // 0. Onay Durumu Sorgulama (REST polling - Server Action hash mismatch bağışık)
+    if (action === "approval_status") {
+      const approvalId = searchParams.get("approvalId");
+      if (!approvalId) {
+        return NextResponse.json({ error: "approvalId required" }, { status: 400 });
+      }
+      const matched = await db
+        .select()
+        .from(approvals)
+        .where(eq(approvals.id, approvalId))
+        .limit(1);
+
+      if (matched.length === 0) return NextResponse.json(null);
+
+      return NextResponse.json({
+        id: matched[0].id,
+        status: matched[0].status,
+        output: matched[0].output,
+        exitCode: matched[0].exitCode,
+        analysis: matched[0].analysis,
+      });
+    }
+
     if (!projectId) {
       return NextResponse.json({ error: "Project ID required" }, { status: 400 });
     }
@@ -116,6 +139,39 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    const { action, approvalId } = body;
+
+    // 0. Onay veya Red REST Aksiyonları (Server Action hash mismatch bağışık)
+    if (action === "approve") {
+      if (!approvalId) {
+        return NextResponse.json({ error: "approvalId required" }, { status: 400 });
+      }
+      await db
+        .update(approvals)
+        .set({
+          status: "approved",
+          respondedAt: new Date(),
+        })
+        .where(eq(approvals.id, approvalId));
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "reject") {
+      if (!approvalId) {
+        return NextResponse.json({ error: "approvalId required" }, { status: 400 });
+      }
+      await db
+        .update(approvals)
+        .set({
+          status: "rejected",
+          respondedAt: new Date(),
+        })
+        .where(eq(approvals.id, approvalId));
+
+      return NextResponse.json({ success: true });
+    }
+
     const { projectId, sessionId, model, content, isObservation } = body;
 
     if (!projectId || !content) {
