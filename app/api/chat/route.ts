@@ -292,7 +292,10 @@ KURALLAR:
    - Komutun sonucunu detaylıca analiz et.
    - Ne gördüğünü, sonucun başarılı olup olmadığını açıkla.
    - Kullanıcıya "Sıradaki adımımız şudur, ne dersin?" diyerek bir sonraki adımı öner ve akışı asla kesme!
-3. Cevaplarını asla yarım bırakma. Cümlelerini ve mantığını eksiksiz tamamla.`;
+3. Cevaplarını asla yarım bırakma. Cümlelerini ve mantığını eksiksiz tamamla.
+4. DOKÜMAN VE DOSYA KORUMA KURALI (ASLA ÜZERİNE YAZMA):
+   - Analysis.md, Deployment.md, Roadmap.md gibi dokümantasyon dosyalarına yeni bir analiz, vizyon veya madde eklerken KESİNLİKLE dosyayı baştan sıfırlayarak üzerine yazma ('>' operatörü KULLANMA!).
+   - Her zaman dosyanın sonuna ekleme yap ('>>' operatörü kullan) veya mevcut içeriği koruyarak sonuna iliştir. Var olan tarihi içeriği ve geçmiş analizleri ASLA ezme!`;
 
       const promptText = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n${isObservation ? content : `Kullanıcı: ${content}`}`;
 
