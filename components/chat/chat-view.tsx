@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Send,
+  Paperclip,
+  X,
   Terminal,
   Cpu,
   FolderGit2,
@@ -77,6 +79,7 @@ export function ChatView({
 
   const [selectedModel, setSelectedModel] = useState<string>("gemini-3.5-flash-lite");
   const [input, setInput] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -592,8 +595,30 @@ export function ChatView({
         </div>
 
         {/* Mesaj Giriş Barı (Mobile-First) */}
-        <div className="shrink-0 p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md">
+        <div className="shrink-0 p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md flex flex-col gap-2">
+          {selectedFile && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-300 w-fit max-w-full truncate">
+              <Paperclip className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+              <span className="truncate font-medium">{selectedFile.name}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedFile(null)}
+                className="p-1 hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSend} className="flex items-center gap-2">
+            <input type="file" id="file-attachment" className="hidden" />
+            <button
+              type="button"
+              onClick={() => document.getElementById("file-attachment")?.click()}
+              className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0"
+              title="Dosya veya Fotoğraf Ekle"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <input
               type="text"
               value={input}
