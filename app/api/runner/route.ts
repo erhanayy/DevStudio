@@ -1,3 +1,4 @@
+import { extractGeminiText } from "@/lib/ai/gemini-parser";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runnerTokens, projects, approvals, chatMessages, userApiKeys } from "@/lib/db/schema";
@@ -211,9 +212,9 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
 
                 if (resp.ok) {
                   const json = await resp.json();
-                  const txt = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                  if (txt) {
-                    assistantReply = txt;
+                  const fullText = extractGeminiText(json);
+                  if (fullText) {
+                    assistantReply = fullText;
                     const match = assistantReply.match(/```(?:bash|sh|shell)?\s*([\s\S]*?)```/);
                     if (match && match[1]) {
                       nextCommand = match[1].trim();

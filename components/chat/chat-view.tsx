@@ -90,6 +90,7 @@ export function ChatView({
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -298,7 +299,7 @@ export function ChatView({
   const currentProject = projects.find((p) => p.id === selectedProjectId);
 
   return (
-    <div className="flex-1 flex overflow-hidden relative">
+    <div className="flex-1 flex overflow-hidden min-h-0 relative w-full h-full">
       {/* SOL KENAR ÇUBUĞU (Projeler & Sohbet Geçmişi) */}
       <div
         className={`${
@@ -418,9 +419,9 @@ export function ChatView({
       </div>
 
       {/* SAĞ ANA SOHBET ALANI */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-950 min-h-0">
         {/* Üst Kokpit Barı */}
-        <div className="p-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md flex items-center justify-between gap-3">
+        <div className="shrink-0 p-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             {/* Sidebar Aç / Kapa Butonu */}
             <button
@@ -471,7 +472,7 @@ export function ChatView({
         </div>
 
         {/* Mesaj Akışı */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-4 overscroll-contain">
           {messages.map((msg) => {
             const isUser = msg.role === "user";
             const isRunner = msg.role === "runner";
@@ -535,7 +536,7 @@ export function ChatView({
         </div>
 
         {/* Mesaj Giriş Barı (Mobile-First) */}
-        <div className="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+        <div className="shrink-0 p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md">
           <form onSubmit={handleSend} className="flex items-center gap-2">
             <input
               type="text"

@@ -15,11 +15,16 @@
   --ring: #06b6d4;
 }
 
-body {
+html, body {
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   background-color: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Custom scrollbars */

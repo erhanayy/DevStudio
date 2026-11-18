@@ -25,9 +25,11 @@ export default async function DashboardLayout({
   const isRunnerOnline = tokens[0]?.isOnline || false;
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
+    <div className="h-full h-[100dvh] max-h-[100dvh] bg-slate-950 flex flex-col overflow-hidden">
       <AppHeader user={session.user} isRunnerOnline={isRunnerOnline} />
-      <main className="flex-1 flex flex-col">{children}</main>
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        {children}
+      </main>
     </div>
   );
 }

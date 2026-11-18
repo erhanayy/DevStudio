@@ -1,4 +1,5 @@
 "use server";
+import { extractGeminiText } from "@/lib/ai/gemini-parser";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -157,8 +158,9 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
 
         if (resp.ok) {
           const json = await resp.json();
-          if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
-            assistantReply = json.candidates[0].content.parts[0].text;
+          const fullText = extractGeminiText(json);
+          if (fullText) {
+            assistantReply = fullText;
 
             const match = assistantReply.match(/\`\`\`(?:bash|sh|shell)?\s*([\s\S]*?)\`\`\`/);
             if (match && match[1]) {
