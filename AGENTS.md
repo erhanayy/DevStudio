@@ -6,6 +6,7 @@ Bu dosya, DevStudio projesinde çalışan yapay zeka asistanının ve geliştirm
 
 ## 1. Analiz ve Değişiklik Takibi
 - Yapılan tüm analizler, mimari kararlar ve değişiklikler Analysis.md içerisine başlıklar halinde detaylıca işlenecektir.
+- **Çoklu Proje İzolasyonu:** Hangi proje üzerinde çalışılıyorsa (DevStudio, TatildeBugün, BurstaBugün vb.) tüm analiz, mimari kararlar ve dağıtım/github kayıtları istisnasız o projenin KENDİ kök dizinindeki dokümanlarına (`Analysis.md`, `Deployment.md`, `github.md`) işlenecektir; projelerin dokümantasyonu asla birbirine karıştırılmayacaktır.
 
 ## 2. GitHub Gönderim Disiplini
 - GitHub'a veya uzak depoya kod gönderimi (push) ASLA otomatik olarak yapılamaz.
