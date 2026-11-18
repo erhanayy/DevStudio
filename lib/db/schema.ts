@@ -134,6 +134,7 @@ export const approvals = pgTable("approvals", {
   status: varchar("status", { length: 20 }).default("pending").notNull(), // 'pending', 'approved', 'rejected', 'running', 'completed', 'failed'
   output: text("output"),
   exitCode: integer("exit_code"),
+  analysis: text("analysis"),
   respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

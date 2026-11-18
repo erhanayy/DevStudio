@@ -76,9 +76,16 @@ export async function GET(req: Request) {
       .where(eq(approvals.sessionId, activeSession.id));
 
     const messages = rawMessages.map((m) => {
-      const app = sessionApprovals.find(
-        (a) => a.sessionId === m.sessionId && m.role === "assistant" && m.content.includes(a.command)
+      let app = sessionApprovals.find(
+        (a) => a.sessionId === m.sessionId && m.role === 'assistant' && m.content.includes(a.command)
       );
+      if (!app && m.role === 'assistant') {
+        app = sessionApprovals.find(
+          (a) =>
+            a.sessionId === m.sessionId &&
+            Math.abs(new Date(a.createdAt).getTime() - new Date(m.createdAt).getTime()) < 10000
+        );
+      }
       return {
         id: m.id,
         role: m.role,

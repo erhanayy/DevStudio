@@ -75,7 +75,10 @@ async function handlePendingTasks(tasks) {
       { cwd: task.projectPath, maxBuffer: 1024 * 1024 * 5 },
       async (error, stdout, stderr) => {
         const output = (stdout || "") + (stderr ? (stdout ? "\n" : "") + stderr : "");
-        const exitCode = error ? (typeof error.code === "number" ? error.code : 1) : 0;
+        let exitCode = error ? (typeof error.code === 'number' ? error.code : 1) : 0;
+        if (exitCode === 1 && output.includes('nothing to commit, working tree clean')) {
+          exitCode = 0; // Çalışma ağacı temiz, yapay hata iptal edildi
+        }
 
         console.log(`\n📤 Çıktı (${output.length} bayt, kod: ${exitCode}) DevStudio sunucusuna iletiliyor...`);
         await sendAction("task_completed", {

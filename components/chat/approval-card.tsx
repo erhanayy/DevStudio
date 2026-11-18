@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldAlert, CheckCircle2, XCircle, Terminal, AlertTriangle, Loader2 } from "lucide-react";
+import { ShieldAlert, CheckCircle2, XCircle, Terminal, AlertTriangle, Loader2, Sparkles } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/context";
 
 interface ApprovalCardProps {
@@ -26,10 +26,38 @@ export function ApprovalCard({
   const { t } = useTranslation();
   const [status, setStatus] = useState(initialStatus);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(15);
+  const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
     setStatus(initialStatus);
   }, [initialStatus]);
+
+  useEffect(() => {
+    if (status === "approved" || status === "running") {
+      setProgress(20);
+      setSeconds(1);
+
+      const secTimer = setInterval(() => {
+        setSeconds((s) => s + 1);
+      }, 1000);
+
+      const progTimer = setInterval(() => {
+        setProgress((p) => {
+          if (p < 80) return p + Math.floor(Math.random() * 8) + 4;
+          if (p < 94) return p + 1;
+          return p;
+        });
+      }, 600);
+
+      return () => {
+        clearInterval(secTimer);
+        clearInterval(progTimer);
+      };
+    } else if (status === "completed") {
+      setProgress(100);
+    }
+  }, [status]);
 
   const handleApprove = async () => {
     setLoading(true);
@@ -87,7 +115,7 @@ export function ApprovalCard({
         <code>{command}</code>
       </div>
 
-      {/* Aksiyon Butonları & Canlı Durum Bildirimi */}
+      {/* Aksiyon Butonları & Dolan Canlı İlerleme Çubuğu */}
       {status === "pending" ? (
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
@@ -117,19 +145,54 @@ export function ApprovalCard({
           </button>
         </div>
       ) : status === "approved" || status === "running" ? (
-        <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-          <span>⚡ Mac Runner üzerinde çalıştırılıyor...</span>
+        <div className="space-y-2.5 p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-500/40">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+              <span>⚡ Mac Runner çalıştırıyor... Terminal dinleniyor</span>
+            </span>
+            <span className="text-[11px] font-mono text-cyan-400 font-extrabold">
+              %{Math.min(progress, 95)} ({seconds}s)
+            </span>
+          </div>
+
+          {/* Dolan İlerleme Çubuğu */}
+          <div className="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-800">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-blue-500 rounded-full transition-all duration-500 ease-out shadow-[0_0_12px_rgba(6,182,212,0.8)]"
+              style={{ width: `${Math.min(progress, 95)}%` }}
+            />
+          </div>
+
+          <p className="text-[10px] text-slate-400 text-center animate-pulse">
+            Terminal çıktısı bittiğinde yapay zeka analiziyle birlikte tek seferde basılacak...
+          </p>
         </div>
       ) : status === "completed" ? (
-        <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>✅ Komut başarıyla tamamlandı</span>
+        <div className="space-y-2 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>✅ Komut Başarıyla Tamamlandı</span>
+            </span>
+            <span className="text-[10px] font-mono text-emerald-400 font-black">%100</span>
+          </div>
+          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+            <div className="h-full bg-emerald-400 rounded-full w-full" />
+          </div>
         </div>
       ) : status === "failed" ? (
-        <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center justify-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-rose-400" />
-          <span>❌ Komut hata ile sonlandı</span>
+        <div className="space-y-2 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span>⚠️ Komut Çalıştırıldı (İnceleme Aşağıda)</span>
+            </span>
+            <span className="text-[10px] font-mono text-amber-400 font-black">%100</span>
+          </div>
+          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+            <div className="h-full bg-amber-400 rounded-full w-full" />
+          </div>
         </div>
       ) : (
         <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center gap-2">

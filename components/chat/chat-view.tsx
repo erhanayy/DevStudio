@@ -232,10 +232,8 @@ export function ChatView({
     }
   };
 
-  // Onaylama & Otonom Takip Döngüsü (Autonomous Feedback Loop)
+  // Onaylama & Sunucu Otonom Yürütme Döngüsü (Server-Side Atomic Pipeline)
   const handleApprove = async (approvalId: string) => {
-    const targetApproval = messages.find((m) => m.approval?.id === approvalId)?.approval;
-
     setMessages((prev) =>
       prev.map((m) =>
         m.approval?.id === approvalId
@@ -246,15 +244,21 @@ export function ChatView({
 
     try {
       await approveApprovalAction(approvalId);
-      toast.info("Komut Mac Runner'a iletildi, çalıştırılıyor...");
+      toast.info("Komut Mac Runner'a iletildi, çubuk çalışıyor...");
 
-      // Runner çıktısını yokla
+      // Runner ve Sunucu Otonom Analizini yokla
       const pollTimer = setInterval(async () => {
         const statusRes = await getApprovalStatusAction(approvalId);
-        if (statusRes && (statusRes.status === "completed" || statusRes.status === "failed")) {
+
+        // Sunucu analizi bitirdiğinde (status completed veya failed VE analysis doluysa)
+        if (
+          statusRes &&
+          (statusRes.status === "completed" || statusRes.status === "failed") &&
+          statusRes.analysis
+        ) {
           clearInterval(pollTimer);
 
-          // Approval kartını güncelle
+          // 1. Approval kartını tamamlandı yap (çubuk %100 olur)
           setMessages((prev) =>
             prev.map((m) =>
               m.approval?.id === approvalId
@@ -263,64 +267,9 @@ export function ChatView({
             )
           );
 
-          // Terminal çıktısını ekrana bas
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: "runner_" + Date.now(),
-              role: "runner",
-              content: `⚡ **Runner Çıktısı (MacBook):**\n\`\`\`bash\n${statusRes.output || "(Boş çıktı)"}\n\`\`\`\n*Durum: ${statusRes.exitCode === 0 ? "✅ Başarılı (0)" : "❌ Hata (" + statusRes.exitCode + ")" }*`,
-              timestamp: new Date(),
-            },
-          ]);
-
-          if (statusRes.exitCode === 0) {
-            toast.success("Komut tamamlandı! Yapay zeka çıktıyı analiz ediyor...");
-          } else {
-            toast.error("Komut hata verdi! Yapay zeka inceliyor...");
-          }
-
-          // 🚀 KRİTİK OTONOM DÖNGÜ: Yapay zekaya çıktıyı gönder ve yönlendirme al!
-          setIsSending(true);
-          try {
-            const obsRes = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                projectId: selectedProjectId,
-                sessionId: activeSessionId,
-                model: selectedModel,
-                content: `[GÖZLEM / MAC RUNNER ÇIKTISI]: "${targetApproval?.command || "Komut"}" çalıştırıldı. Çıkış kodu: ${statusRes.exitCode}.\nTerminal Çıktısı:\n\`\`\`\n${statusRes.output || "(Çıktı boş)"}\n\`\`\`\n\nBu çıktıyı incele; kullanıcıya ne gördüğünü açıkla, işlemin bittiğini teyit et ve sıradaki adımı söyle.`,
-                isObservation: true,
-              }),
-            });
-
-            if (obsRes.ok) {
-              const obsData = await obsRes.json();
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: obsData.assistantMessage.id,
-                  role: "assistant",
-                  content: obsData.assistantMessage.content,
-                  timestamp: new Date(obsData.assistantMessage.createdAt),
-                  approval: obsData.approval
-                    ? {
-                        id: obsData.approval.id,
-                        command: obsData.approval.command,
-                        description: obsData.approval.description,
-                        riskLevel: obsData.approval.riskLevel,
-                        status: obsData.approval.status,
-                      }
-                    : undefined,
-                },
-              ]);
-            }
-          } catch (e) {
-            console.error("Observation error:", e);
-          } finally {
-            setIsSending(false);
-          }
+          // 2. Projenin güncel sohbet geçmişini tek seferde sunucudan çekip ekrana koy!
+          await loadProjectChat(selectedProjectId, activeSessionId);
+          toast.success("Komut ve analiz tek seferde tamamlandı!");
         }
       }, 1500);
 

@@ -137,7 +137,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
+        const timeout = setTimeout(() => controller.abort(), 35000);
 
         const resp = await fetch(url, {
           method: "POST",
@@ -149,6 +149,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
                 parts: [{ text: fullPrompt }],
               },
             ],
+            generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
           }),
         });
 
@@ -284,5 +285,8 @@ export async function getApprovalStatusAction(approvalId: string) {
     status: matched[0].status,
     output: matched[0].output,
     exitCode: matched[0].exitCode,
+    analysis: matched[0].analysis,
+    sessionId: matched[0].sessionId,
+    projectId: matched[0].projectId,
   };
 }
