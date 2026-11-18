@@ -6,6 +6,7 @@ Bu dokümanda DevStudio platformunun bulut dağıtım adımları ve geçmişi ka
 
 | Sürüm | Tarih | Ortam | Değişiklik Özeti | Durum |
 | :--- | :--- | :--- | :--- | :--- |
+| v1.1.0 | 2026-11-18 | Production (`europe-west1`) | DevStudio'nun kendi kendini geliştirmesi (Dogfooding): Projeler listesine DevStudio eklendi, `/api/runner` senkronizasyon ve canlı heartbeat köprüsü entegre edildi, runner-client çoklu proje desteği kazandı | Dağıtımda / Yayında |
 | v1.0.0 | 2026-11-17 | Production (`devstudio.bugunai.com`) | İlk Canlı Yayın: Google Cloud Run (`europe-west1`), NextAuth v5 kimlik doğrulama, Cloud SQL PostgreSQL (`devstudio`), AES-256 Vault, Çift Dilli i18n, Mobil-First Chat & İnteraktif Onay Kartları | Dağıtımda / Yayında |
 | v0.1.0 | 2026-11-17 | Tasarım & Mimari | Proje analiz ve mimari spesifikasyonu hazırlandı | Analiz Aşamasında |
 
