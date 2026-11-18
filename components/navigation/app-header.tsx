@@ -50,14 +50,14 @@ export function AppHeader({ user, isRunnerOnline = false }: AppHeaderProps) {
 
   return (
     <header className="shrink-0 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between">
         {/* Sol Alan: Logo & Kapsül Ada Menüsü */}
-        <div className="flex items-center gap-3 sm:gap-6">
-          <Link href="/chat" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/25 group-hover:scale-105 transition-transform">
-              <Terminal className="w-5 h-5 stroke-[2.5]" />
+        <div className="flex items-center gap-2 sm:gap-6 min-w-0">
+          <Link href="/chat" className="flex items-center gap-2 group shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/25 group-hover:scale-105 transition-transform">
+              <Terminal className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
-            <span className="font-black text-lg text-white">
+            <span className="font-black text-base sm:text-lg text-white tracking-tight">
               Dev<span className="text-cyan-400">Studio</span>
             </span>
           </Link>
@@ -85,17 +85,17 @@ export function AppHeader({ user, isRunnerOnline = false }: AppHeaderProps) {
         </div>
 
         {/* Sağ Alan: Runner Durumu + Dil + Profil & Çıkış */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Runner Canlı Durum Rozeti */}
           <div
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
+            className={`flex items-center gap-1 px-2 py-1.5 sm:px-2.5 rounded-xl border text-[10px] sm:text-[11px] font-bold transition-all ${
               isRunnerOnline
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                 : "bg-slate-900/60 border-slate-800 text-slate-400"
             }`}
             title={isRunnerOnline ? "Mac / PC Runner Bağlı" : "Runner Çevrimdışı (Komut Bekleniyor)"}
           >
-            <Radio className={`w-3.5 h-3.5 ${isRunnerOnline ? "animate-pulse text-emerald-400" : "text-slate-500"}`} />
+            <Radio className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isRunnerOnline ? "animate-pulse text-emerald-400" : "text-slate-500"}`} />
             <span className="hidden md:inline">
               {isRunnerOnline ? t("chat.online") : t("chat.offline")}
             </span>
@@ -105,15 +105,15 @@ export function AppHeader({ user, isRunnerOnline = false }: AppHeaderProps) {
           <button
             type="button"
             onClick={() => setLanguage(locale === "tr" ? "en" : "tr")}
-            className="flex items-center justify-center gap-1 px-2.5 h-[38px] rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+            className="flex items-center justify-center gap-1 px-2 h-[34px] sm:h-[38px] rounded-xl bg-slate-900/65 hover:bg-slate-800/80 border border-slate-800 text-xs font-bold text-slate-200 transition-all cursor-pointer"
             aria-label={t("nav.language")}
           >
             <span>{locale === "tr" ? "🇹🇷" : "🇬🇧"}</span>
-            <span className="text-[11px] font-extrabold text-cyan-400 uppercase">{locale.toUpperCase()}</span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold text-cyan-400 uppercase">{locale}</span>
           </button>
 
           {/* Profil Avatarı */}
-          <div className="w-[38px] h-[38px] rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-cyan-400 shadow-sm">
+          <div className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-cyan-400 shadow-sm">
             {user.name?.[0]?.toUpperCase() || "E"}
           </div>
 
@@ -121,11 +121,11 @@ export function AppHeader({ user, isRunnerOnline = false }: AppHeaderProps) {
           <form action={logoutAction}>
             <button
               type="submit"
-              className="w-[38px] h-[38px] rounded-xl text-rose-400 bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 hover:bg-rose-500/10 transition-colors cursor-pointer flex items-center justify-center group"
+              className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] rounded-xl text-rose-400 bg-slate-900/65 border border-slate-800 hover:border-rose-500/40 hover:bg-rose-500/10 transition-colors cursor-pointer flex items-center justify-center group"
               aria-label={t("nav.logout")}
               title={t("nav.logout")}
             >
-              <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:scale-110 transition-transform" />
             </button>
           </form>
         </div>
