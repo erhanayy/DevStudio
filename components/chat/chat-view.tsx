@@ -100,6 +100,34 @@ export function ChatView({
     scrollToBottom();
   }, [messages, isSending]);
 
+  // Bekleyen / Devam eden onayları otomatik dinle (Sayfa yenilense veya uzun sürse dahi)
+  useEffect(() => {
+    const activeAppr = messages.find(
+      (m) => m.approval && (m.approval.status === "approved" || m.approval.status === "running")
+    )?.approval;
+
+    if (!activeAppr) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const statusRes = await getApprovalStatusAction(activeAppr.id);
+        if (
+          statusRes &&
+          (statusRes.status === "completed" || statusRes.status === "failed") &&
+          statusRes.analysis
+        ) {
+          clearInterval(interval);
+          await loadProjectChat(selectedProjectId, activeSessionId);
+          toast.success("İşlem tamamlandı!");
+        }
+      } catch (e) {
+        console.error("Poller error:", e);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [messages, selectedProjectId, activeSessionId]);
+
   // Proje veya oturum değiştiğinde mesajları yükle
   const loadProjectChat = async (projId: string, sessId?: string) => {
     try {
@@ -274,7 +302,7 @@ export function ChatView({
         }
       }, 1500);
 
-      setTimeout(() => clearInterval(pollTimer), 120000);
+      setTimeout(() => clearInterval(pollTimer), 600000);
     } catch (err: any) {
       toast.error("Onay iletilemedi: " + err.message);
     }
