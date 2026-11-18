@@ -66,7 +66,7 @@ export function ChatView({
     initialProjects[0]?.id ||
     ""
   );
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-flash-latest");
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.5-flash-lite");
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -235,14 +235,14 @@ export function ChatView({
               onChange={(e) => setSelectedModel(e.target.value)}
               className="bg-transparent text-xs font-extrabold text-slate-300 focus:outline-none cursor-pointer pr-2"
             >
-              <option value="gemini-flash-latest" className="bg-slate-900 text-white">
-                ⚡ Gemini Flash (Hızlı & Ücretsiz)
+              <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
+                ⚡ Gemini 3.5 Flash Lite (Önerilen & Çok Hızlı)
               </option>
-              <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
-                🧠 Gemini 3.8 Flash
+              <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
+                🧠 Gemini 3.1 Flash Lite
               </option>
-              <option value="gemma-4-26b-a4b-it" className="bg-slate-900 text-white">
-                💎 Gemma 4 Open AI
+              <option value="gemini-3.5-flash" className="bg-slate-900 text-white">
+                🚀 Gemini 3.5 Flash
               </option>
               <option value="claude-3-7-sonnet" className="bg-slate-900 text-white">
                 🎭 Claude 3.7 Sonnet

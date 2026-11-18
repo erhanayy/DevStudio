@@ -87,6 +87,20 @@ export async function sendMessageAction({
     }
   }
 
+  // Geçmiş son mesajları getir (Çok turlu konuşma hafızası)
+  const pastMessages = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, chatSession.id))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(8);
+
+  const historyText = pastMessages
+    .reverse()
+    .filter((m) => m.id !== userMsg[0].id)
+    .map((m) => `${m.role === "user" ? "Kullanıcı" : "DevStudio"}: ${m.content}`)
+    .join("\n\n");
+
   let assistantReply = "";
   let proposedCommand: string | null = null;
   let commandDesc: string | null = null;
@@ -95,28 +109,35 @@ export async function sendMessageAction({
   // 4. Gemini API çağrısı (Varsa dene)
   if (apiKey) {
     const candidateModels = [
-      model && model !== "gemini-2.0-flash" ? model : "gemini-3.8-flash",
-      "gemini-flash-latest",
-      "gemma-4-26b-a4b-it",
-      "gemini-3.7-flash",
+      model && !model.includes("2.0") && !model.includes("3.8") ? model : "gemini-3.5-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.5-flash",
     ];
 
-    const systemInstruction = `Sen DevStudio adında, deneyimli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
-Kullanıcı seninle cep telefonundan veya bilgisayarından yazışıyor.
+    const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
+Kullanıcı seninle Türkçe konuşuyor. Tıpkı Antigravity veya Claude ile yaptığı gibi tamamen serbest, doğal ve gündelik bir dille sohbet eder; mimari tartışır, soru sorar, fikir danışır veya geliştirme talep eder.
+ASLA mekanik, kalıplaşmış veya robotik yanıt verme. Samimi, vizyoner, teknik olarak yetkin ve çözüm odaklı bir mesai arkadaşı gibi ol.
+
 Şu an aktif olan proje: "${projectName}"
-Projenin kullanıcının bilgisayarındaki (Mac/PC) yerel dizini: "${projectPath}"
+Projenin kullanıcının bilgisayarındaki (Mac) yerel dizini: "${projectPath}"
 Varsayılan dağıtım komutu: "${deployCmd}"
 
-Kullanıcının talimatını veya sorusunu yanıtla. Samimi, teknik, Türkçe ve çözüm odaklı ol.
-Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir terminal komutu (git, npm, build, test, deploy, ls vb.) çalıştırmak gerekiyorsa:
+Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir terminal komutu (git, npm, build, test, deploy, dosya inceleme vb.) çalıştırmak gerekiyorsa:
 1. Komutu mutlaka tek bir \`\`\`bash ... \`\`\` kod bloğu içerisine yaz.
-2. Neden bu komutu önerdiğini kısaca açıkla.`;
+2. Neden bu komutu önerdiğini kısaca açıkla.
+Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üretmene gerek yoktur; doğrudan samimi ve aydınlatıcı cevabını ver.`;
+
+    const fullPrompt = historyText
+      ? `${systemInstruction}\n\n--- ÖNCEKİ SOHBET GEÇMİŞİ ---\n${historyText}\n\nKullanıcı: ${content}`
+      : `${systemInstruction}\n\nKullanıcı: ${content}`;
 
     for (const m of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
+        const timeout = setTimeout(() => controller.abort(), 15000);
 
         const resp = await fetch(url, {
           method: "POST",
@@ -125,9 +146,7 @@ Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir termina
           body: JSON.stringify({
             contents: [
               {
-                parts: [
-                  { text: `${systemInstruction}\n\nKullanıcı: ${content}` },
-                ],
+                parts: [{ text: fullPrompt }],
               },
             ],
           }),
@@ -140,15 +159,18 @@ Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir termina
           if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
             assistantReply = json.candidates[0].content.parts[0].text;
 
-            const match = assistantReply.match(/```(?:bash|sh|shell)?\s*([\s\S]*?)```/);
+            const match = assistantReply.match(/\`\`\`(?:bash|sh|shell)?\s*([\s\S]*?)\`\`\`/);
             if (match && match[1]) {
               proposedCommand = match[1].trim();
               commandDesc = `${projectName} üzerinde komut icra edilecek`;
-              riskLevel = proposedCommand.includes("deploy") || proposedCommand.includes("push") || proposedCommand.includes("rm")
-                ? "critical"
-                : proposedCommand.includes("build") || proposedCommand.includes("install")
-                ? "high"
-                : "low";
+              riskLevel =
+                proposedCommand.includes("deploy") ||
+                proposedCommand.includes("push") ||
+                proposedCommand.includes("rm")
+                  ? "critical"
+                  : proposedCommand.includes("build") || proposedCommand.includes("install")
+                  ? "high"
+                  : "low";
             }
             break; // Başarılı, döngüden çık
           }
@@ -159,55 +181,27 @@ Eğer kullanıcının talebini yerine getirmek için bilgisayarında bir termina
     }
   }
 
-  // 5. Eğer Gemini yanıt üretemediyse (kota / geçici yoğunluk) veya komut tespit edemediyse yerel akıllı motor devreye girer
-  const lower = content.toLowerCase();
+  // 5. Eğer hala yanıt yoksa (API kotası / geçici bağlantı kesintisi), doğal ve akıcı mesai arkadaşı yanıtı üret
+  if (!assistantReply) {
+    const lower = content.toLowerCase();
 
-  // Komut tespiti
-  if (!proposedCommand) {
     if (lower.includes("durum") || lower.includes("status") || lower.includes("git")) {
       proposedCommand = "git status";
       commandDesc = `${projectName} yerel git çalışma durumunu kontrol et`;
       riskLevel = "low";
-      if (!assistantReply) {
-        assistantReply = `🔍 **${projectName}** projenizin yerel git deposundaki değiştirilen ve izlenmeyen dosyaları kontrol etmek için komut hazırlandı. Aşağıdaki butondan onaylayabilirsiniz:`;
-      }
-    } else if (lower.includes("commit") || lower.includes("geçmiş") || lower.includes("log")) {
-      proposedCommand = "git log -n 5 --oneline";
-      commandDesc = `${projectName} son 5 commit geçmişini listele`;
-      riskLevel = "low";
-      if (!assistantReply) {
-        assistantReply = `📜 **${projectName}** projesindeki en son 5 git commit'ini listelemek için komut hazırlandı.`;
-      }
+      assistantReply = `🔍 **${projectName}** projenizin yerel deposundaki güncel değişiklikleri ve git durumunu görmek için komutu hazırladım. İnceleyip onaylayabilirsiniz:`;
     } else if (lower.includes("test") || lower.includes("derle") || lower.includes("build")) {
       proposedCommand = "npm run build";
       commandDesc = `${projectName} üretim derlemesini test et`;
       riskLevel = "high";
-      if (!assistantReply) {
-        assistantReply = `🧪 **${projectName}** projenizin TypeScript ve derleme testlerini koşmak için komut hazırlandı.`;
-      }
+      assistantReply = `🧪 **${projectName}** projenizin TypeScript tip ve derleme testlerini koşmak için komutu hazırladım. Onay verdiğinizde Mac Runner hemen çalıştıracak:`;
     } else if (lower.includes("deploy") || lower.includes("dağıt") || lower.includes("canlı")) {
       proposedCommand = deployCmd || "npm run build";
       commandDesc = `${projectName} canlı sunucuya dağıtım yap`;
       riskLevel = "critical";
-      if (!assistantReply) {
-        assistantReply = `🚀 **${projectName}** projesini canlı ortama dağıtmak için onayınız bekleniyor:`;
-      }
-    } else if (lower.includes("dosya") || lower.includes("ls") || lower.includes("klasör") || lower.includes("dizin")) {
-      proposedCommand = "ls -la";
-      commandDesc = `${projectName} proje ana dizinindeki dosyaları listele`;
-      riskLevel = "low";
-      if (!assistantReply) {
-        assistantReply = `📁 **${projectName}** klasöründeki dosyaları listelemek için komut hazırlandı.`;
-      }
-    }
-  }
-
-  // Eğer hala bir yanıt yoksa, soruya özel akıllı yanıt üret
-  if (!assistantReply) {
-    if (lower.includes("devstudio") && (lower.includes("yapabiliyor") || lower.includes("müyüm") || lower.includes("geliştirme"))) {
-      assistantReply = `🎉 **Evet, kesinlikle Erhan Bey!**\n\nDevStudio tam da bu amaçla kendi kendini geliştirebilen bir mimariyle tasarlandı (Self-Hosting / Dogfooding).\n\nŞu an üstteki proje açılır kutusundan **DevStudio** projesini seçtiğinizde:\n1. Mac'inizdeki \`/Users/erhanayyildiz/Desktop/Work/DevStudio\` çalışma dizinine doğrudan bağlanırsınız.\n2. Telefonunuzdan vereceğiniz kodlama, test ve dosya inceleme talimatları Mac'inizdeki Runner tarafından icra edilir.\n3. Geliştirme bittiğinde doğrudan telefondan onay verip yeni DevStudio sürümünü Cloud Run'a deploy edebilirsiniz!\n\nİlk deneme için hemen alt kısımdaki **\`🔍 Git Status\`** butonuna basabilir veya *"git status kontrol et"* yazabilirsiniz.`;
+      assistantReply = `🚀 **${projectName}** projesini canlı ortama dağıtmak için onayınız bekleniyor:`;
     } else {
-      assistantReply = `👋 **${projectName}** projesi için talimatınız alındı: *"${content}"*\n\nMac Runner'ınız bağlı ve çalışır durumda. İstediğiniz bir komutu çalıştırmak için doğrudan komut adı yazabilir (örn: *"git status"*, *"npm run build"*, *"git log"*) veya alt kısımdaki hızlı işlem butonlarını kullanabilirsiniz.`;
+      assistantReply = `Harika bir konu Erhan! **${projectName}** projesi için aklındaki bu fikri birlikte adım adım hayata geçirelim: *"${content}"*\n\nSence önce mimari ve tasarımı mı konuşalım, yoksa doğrudan kod tarafına mı geçelim? Ne düşünüyorsun?`;
     }
   }
 
