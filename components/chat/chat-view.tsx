@@ -610,7 +610,7 @@ export function ChatView({
             </div>
           )}
           <form onSubmit={handleSend} className="flex items-center gap-2">
-            <input type="file" id="file-attachment" className="hidden" />
+            <input type="file" id="file-attachment" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
             <button
               type="button"
               onClick={() => document.getElementById("file-attachment")?.click()}
