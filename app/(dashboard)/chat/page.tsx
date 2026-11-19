@@ -33,11 +33,18 @@ export default async function ChatPage() {
     });
   }
 
+  const runnerRow = tokens[0];
+  const isRunnerOnline =
+    Boolean(runnerRow?.isOnline) &&
+    Boolean(runnerRow?.lastSeenAt) &&
+    Date.now() - new Date(runnerRow!.lastSeenAt!).getTime() < 90_000;
+
   return (
     <ChatView
       initialProjects={userProjects}
       runnerToken={token}
-      isRunnerOnline={tokens[0]?.isOnline || false}
+      isRunnerOnline={isRunnerOnline}
+      runnerDeviceName={runnerRow?.deviceName || ""}
     />
   );
 }

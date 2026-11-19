@@ -1,4 +1,5 @@
 import { extractGeminiText } from "@/lib/ai/gemini-parser";
+import { isLocalCliCommand, parseLocalCliCommand } from "@/lib/runner/local-cli";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runnerTokens, projects, approvals, chatMessages, userApiKeys } from "@/lib/db/schema";
@@ -117,6 +118,52 @@ export async function POST(req: Request) {
         if (matchedAppr.length > 0) {
           const appr = matchedAppr[0];
 
+          // A) YEREL CLI AJAN GÖREVİ (Antigravity agy / Claude / Gemini CLI)
+          // Doğrudan ajan yanıtı döndüğü için bulut Gemini API çağrılmaz (0 ek maliyet & 0 timeout)
+          if (payload?.isLocalCli || isLocalCliCommand(appr.command)) {
+            const parsedMeta = parseLocalCliCommand(appr.command);
+            const engineName = payload?.engine || parsedMeta?.engine || "cli";
+            const modelName = payload?.model || parsedMeta?.model || "default";
+            const modeName = (payload?.mode || parsedMeta?.mode) === "auto" ? "Geliştir" : "Plan";
+            const durationSec =
+              typeof payload?.durationSeconds === "number" && payload.durationSeconds > 0
+                ? ` • ${payload.durationSeconds}s`
+                : "";
+
+            const changedFiles: string[] = Array.isArray(payload?.changedFiles)
+              ? payload.changedFiles.filter((f: unknown) => typeof f === "string" && f.trim())
+              : [];
+
+            let assistantReply = cleanOutput || "(Yerel CLI ajanından boş yanıt döndü)";
+
+            if (changedFiles.length > 0) {
+              const fileLines = changedFiles.map((f) => `- \`${f}\``).join("\n");
+              assistantReply += `\n\n---\n📝 **Değişen Dosyalar:**\n${fileLines}`;
+            }
+
+            const modelSuffix = modelName && modelName !== "default" ? ` • ${modelName}` : "";
+            assistantReply += `\n\n*🖥️ Yerel Ajan (${engineName}${modelSuffix} • ${modeName}${durationSec})*`;
+
+            await db.insert(chatMessages).values({
+              sessionId: appr.sessionId,
+              role: "assistant",
+              content: assistantReply,
+            });
+
+            await db
+              .update(approvals)
+              .set({
+                status: finalStatus,
+                output: cleanOutput,
+                exitCode: finalExitCode,
+                analysis: assistantReply,
+              })
+              .where(eq(approvals.id, approvalId));
+
+            return NextResponse.json({ success: true });
+          }
+
+          // B) STANDART TERMINAL KOMUTU
           // Proje ve kullanıcı bağlamını al
           const projectList = appr.projectId
             ? await db.select().from(projects).where(eq(projects.id, appr.projectId)).limit(1)
@@ -325,9 +372,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
+  const row = matched[0];
+  const isFreshOnline =
+    Boolean(row.isOnline) &&
+    row.lastSeenAt !== null &&
+    Date.now() - new Date(row.lastSeenAt).getTime() < 90_000;
+
   return NextResponse.json({
-    isOnline: matched[0].isOnline,
-    lastSeenAt: matched[0].lastSeenAt,
-    deviceName: matched[0].deviceName,
+    isOnline: isFreshOnline,
+    lastSeenAt: row.lastSeenAt,
+    deviceName: row.deviceName,
   });
 }

@@ -103,7 +103,7 @@ export function ApprovalCard({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       title: "İşlem Yürütülüyor...",
       titleColor: "text-cyan-300",
-      desc: "Mac Runner terminal üzerinde komutu icra ediyor...",
+      desc: "PC / Mac Runner terminal üzerinde komutu icra ediyor...",
     },
     running: {
       border: "border-cyan-500/40 shadow-cyan-950/20",
@@ -111,7 +111,7 @@ export function ApprovalCard({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       title: "İşlem Yürütülüyor...",
       titleColor: "text-cyan-300",
-      desc: "Mac Runner terminal üzerinde komutu icra ediyor...",
+      desc: "PC / Mac Runner terminal üzerinde komutu icra ediyor...",
     },
     completed: {
       border: "border-emerald-500/50 shadow-emerald-950/20",
@@ -204,7 +204,7 @@ export function ApprovalCard({
           <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
             <span className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
-              <span>⚡ Mac Runner çalıştırıyor... Terminal dinleniyor</span>
+              <span>⚡ PC / Mac Runner çalıştırıyor... Terminal dinleniyor</span>
             </span>
             <span className="text-[11px] font-mono text-cyan-400 font-extrabold">
               %{Math.min(progress, 95)} ({seconds}s)

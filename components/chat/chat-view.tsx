@@ -20,8 +20,19 @@ import {
   Sparkles,
   Copy,
   Check,
+  Laptop,
+  Shield,
+  Wrench,
+  Loader2,
+  BookOpen,
 } from "lucide-react";
 import { ApprovalCard } from "./approval-card";
+import { RunnerSetupModal } from "./runner-setup-modal";
+import {
+  LOCAL_CLI_MODELS,
+  isLocalCliModel,
+  type LocalCliMode,
+} from "@/lib/runner/local-cli";
 import { useTranslation } from "@/lib/i18n/context";
 import { toast } from "sonner";
 
@@ -55,16 +66,25 @@ interface Message {
   };
 }
 
+interface ActiveLocalJob {
+  id: string;
+  description: string;
+  status: string;
+  startedAt: number;
+}
+
 interface ChatViewProps {
   initialProjects: Project[];
   runnerToken: string;
   isRunnerOnline: boolean;
+  runnerDeviceName?: string;
 }
 
 export function ChatView({
   initialProjects,
   runnerToken,
   isRunnerOnline,
+  runnerDeviceName = "",
 }: ChatViewProps) {
   const { t } = useTranslation();
   const [projects] = useState<Project[]>(initialProjects);
@@ -79,7 +99,17 @@ export function ChatView({
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-3-flash-preview");
+  const [runnerOnline, setRunnerOnline] = useState<boolean>(isRunnerOnline);
+  const [deviceName, setDeviceName] = useState<string>(runnerDeviceName);
+  const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
+
+  const [selectedModel, setSelectedModel] = useState<string>(
+    isRunnerOnline ? "local:agy:gemini-4-neon-high" : "gemini-3-flash-preview"
+  );
+  const [localMode, setLocalMode] = useState<LocalCliMode>("plan");
+  const [activeLocalJob, setActiveLocalJob] = useState<ActiveLocalJob | null>(null);
+  const [localJobSeconds, setLocalJobSeconds] = useState<number>(0);
+
   const [input, setInput] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -90,7 +120,7 @@ export function ChatView({
       id: "welcome",
       role: "assistant",
       content:
-        "👋 Merhaba Erhan! DevStudio mobil yapay zeka mühendisine hoş geldin. Sol panelden çalışmak istediğin projeyi ve oturumu seçebilir, dilediğin gibi serbestçe sohbet edebilirsin. Mac'indeki yerel Runner komutları canlı çalıştırmak için hazır!",
+        "👋 Merhaba! DevStudio mobil yapay zeka stüdyosuna hoş geldin. Sol panelden projeyi seç, üstten Yerel Ajan (PC/Mac CLI) veya Bulut modelini belirle ve serbestçe geliştirme yap!",
       timestamp: new Date(),
     },
   ]);
@@ -104,7 +134,51 @@ export function ChatView({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isSending]);
+  }, [messages, isSending, activeLocalJob]);
+
+  // Aktif Yerel CLI Ajan görevini canlı izle (10 dakikaya kadar sıfır timeout)
+  useEffect(() => {
+    if (!activeLocalJob) {
+      setLocalJobSeconds(0);
+      return;
+    }
+
+    const secTimer = setInterval(() => {
+      setLocalJobSeconds(Math.max(1, Math.floor((Date.now() - activeLocalJob.startedAt) / 1000)));
+    }, 1000);
+
+    const pollTimer = setInterval(async () => {
+      try {
+        const resp = await fetch(
+          `/api/chat?action=approval_status&approvalId=${activeLocalJob.id}&projectId=${selectedProjectId}`
+        );
+        if (!resp.ok) return;
+        const statusRes = await resp.json();
+        if (
+          statusRes &&
+          (statusRes.status === "completed" || statusRes.status === "failed") &&
+          statusRes.analysis
+        ) {
+          clearInterval(pollTimer);
+          clearInterval(secTimer);
+          setActiveLocalJob(null);
+          await loadProjectChat(selectedProjectId, activeSessionId);
+          if (statusRes.status === "completed") {
+            toast.success("Yerel Ajan yanıtladı!");
+          } else {
+            toast.warning("Yerel Ajan uyarı/hata ile tamamlandı");
+          }
+        }
+      } catch (e) {
+        console.error("Local CLI poller error:", e);
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(secTimer);
+      clearInterval(pollTimer);
+    };
+  }, [activeLocalJob, selectedProjectId, activeSessionId]);
 
   // Bekleyen / Devam eden onayları otomatik dinle (Sayfa yenilense veya uzun sürse dahi)
   useEffect(() => {
@@ -150,6 +224,24 @@ export function ChatView({
         setSessions(data.sessions || []);
         if (data.activeSession) {
           setActiveSessionId(data.activeSession.id);
+        }
+        if (data.runnerStatus) {
+          setRunnerOnline(Boolean(data.runnerStatus.isOnline));
+          if (data.runnerStatus.deviceName) {
+            setDeviceName(data.runnerStatus.deviceName);
+          }
+        }
+        if (data.activeLocalJob) {
+          setActiveLocalJob({
+            id: data.activeLocalJob.id,
+            description: data.activeLocalJob.description,
+            status: data.activeLocalJob.status,
+            startedAt: data.activeLocalJob.createdAt
+              ? new Date(data.activeLocalJob.createdAt).getTime()
+              : Date.now(),
+          });
+        } else {
+          setActiveLocalJob(null);
         }
         if (data.messages && data.messages.length > 0) {
           setMessages(
@@ -211,13 +303,14 @@ export function ChatView({
   // Mesaj Gönder
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || isSending) return;
+    if (!input.trim() || isSending || activeLocalJob) return;
 
     const userText = input.trim();
     setInput("");
 
+    const tempId = "usr_" + Date.now();
     const tempUserMsg: Message = {
-      id: "usr_" + Date.now(),
+      id: tempId,
       role: "user",
       content: userText,
       timestamp: new Date(),
@@ -233,12 +326,21 @@ export function ChatView({
           projectId: selectedProjectId,
           sessionId: activeSessionId,
           model: selectedModel,
+          localMode,
           content: userText,
         }),
       });
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
+        if (res.status === 409 && errJson.code === "RUNNER_OFFLINE") {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+          setInput(userText);
+          setRunnerOnline(false);
+          toast.error(errJson.error || "PC / Mac Runner çevrimdışı!");
+          setSetupModalOpen(true);
+          return;
+        }
         throw new Error(errJson.error || "İstek başarısız oldu");
       }
 
@@ -247,23 +349,37 @@ export function ChatView({
         setActiveSessionId(data.sessionId);
       }
 
-      const assistantMsg: Message = {
-        id: data.assistantMessage.id,
-        role: "assistant",
-        content: data.assistantMessage.content,
-        timestamp: new Date(data.assistantMessage.createdAt),
-        approval: data.approval
-          ? {
-              id: data.approval.id,
-              command: data.approval.command,
-              description: data.approval.description,
-              riskLevel: data.approval.riskLevel,
-              status: data.approval.status,
-            }
-          : undefined,
-      };
+      // Yerel CLI Ajan görevi kuyruğa alındı -> canlı izleme kartını başlat
+      if (data.isLocalCliJob && data.localJob) {
+        setActiveLocalJob({
+          id: data.localJob.id,
+          description: data.localJob.description,
+          status: data.localJob.status,
+          startedAt: Date.now(),
+        });
+        toast.info("Görev PC / Mac Yerel Ajanına iletildi...");
+        return;
+      }
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      if (data.assistantMessage) {
+        const assistantMsg: Message = {
+          id: data.assistantMessage.id,
+          role: "assistant",
+          content: data.assistantMessage.content,
+          timestamp: new Date(data.assistantMessage.createdAt),
+          approval: data.approval
+            ? {
+                id: data.approval.id,
+                command: data.approval.command,
+                description: data.approval.description,
+                riskLevel: data.approval.riskLevel,
+                status: data.approval.status,
+              }
+            : undefined,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+      }
     } catch (err: any) {
       toast.error("Mesaj iletilemedi: " + err.message);
     } finally {
@@ -502,26 +618,24 @@ export function ChatView({
         </div>
 
         {/* Runner Durum Çubuğu */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
+        <div className="p-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isRunnerOnline ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                runnerOnline ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
               }`}
             />
-            <span className="text-[11px] font-bold text-slate-300">
-              {isRunnerOnline ? "Mac Online" : "Mac Çevrimdışı"}
+            <span className="text-[11px] font-bold text-slate-300 truncate" title={deviceName}>
+              {runnerOnline ? "Runner Online" : "Runner Çevrimdışı"}
             </span>
           </div>
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(`node devstudio-runner.mjs --token=${runnerToken}`);
-              toast.success("Runner komutu kopyalandı!");
-            }}
-            className="text-[10px] text-cyan-400 hover:underline cursor-pointer"
+            onClick={() => setSetupModalOpen(true)}
+            className="min-h-[36px] px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[11px] font-bold text-cyan-300 hover:bg-cyan-500/25 inline-flex items-center gap-1 cursor-pointer shrink-0"
           >
-            Kodu Kopyala
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Kurulum</span>
           </button>
         </div>
       </div>
@@ -535,7 +649,7 @@ export function ChatView({
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center transition-all cursor-pointer z-10"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center transition-all cursor-pointer z-10"
               title="Projeler Menüsü"
               aria-label="Projeler Menüsü"
             >
@@ -558,31 +672,104 @@ export function ChatView({
             </div>
           </div>
 
-          {/* Model Seçici */}
-          <div className="flex items-center gap-1.5 shrink-0 max-w-[155px] xs:max-w-[185px] sm:max-w-xs min-w-0">
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs w-full min-w-0">
+          {/* Model Seçici & Kurulum Rehberi İkonu */}
+          <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs max-w-[148px] xs:max-w-[180px] sm:max-w-[260px] min-w-0 min-h-[44px]">
               <Cpu className="w-3.5 h-3.5 text-purple-400 shrink-0" />
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
+                aria-label="Yapay Zeka Modeli Seç"
                 className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1 w-full truncate"
               >
-                <option value="gemini-3-flash-preview" className="bg-slate-900 text-white">
-                  🚀 3-Flash (Önerilen)
-                </option>
-                <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
-                  🌟 3.8 Flash (Gelişmiş AI)
-                </option>
-                <option value="gemini-flash-lite-latest" className="bg-slate-900 text-white">
-                  ⚡ Flash Lite Latest (Hızlı)
-                </option>
-                <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
-                  🧠 3.5 Flash Lite
-                </option>
+                <optgroup label="🖥️ Yerel Ajan (PC / Mac CLI • $0 Ek Maliyet)" className="bg-slate-900 text-cyan-300">
+                  {LOCAL_CLI_MODELS.map((m) => (
+                    <option key={m.value} value={m.value} className="bg-slate-900 text-white">
+                      {m.shortLabel}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="☁️ Bulut API Modelleri" className="bg-slate-900 text-purple-300">
+                  <option value="gemini-3-flash-preview" className="bg-slate-900 text-white">
+                    🚀 3-Flash (Bulut)
+                  </option>
+                  <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
+                    🌟 3.8 Flash (Bulut)
+                  </option>
+                  <option value="gemini-flash-lite-latest" className="bg-slate-900 text-white">
+                    ⚡ Flash Lite (Hızlı)
+                  </option>
+                  <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
+                    🧠 3.5 Flash Lite
+                  </option>
+                </optgroup>
               </select>
             </div>
+
+            {/* PC / Mac Runner Kurulum Rehberi İkonu (44px Mobil Hedef) */}
+            <button
+              type="button"
+              onClick={() => setSetupModalOpen(true)}
+              title="PC / Mac Runner Kurulum Rehberi"
+              aria-label="PC / Mac Runner Kurulum Rehberi"
+              className="relative min-w-[44px] min-h-[44px] rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 flex items-center justify-center shrink-0 transition-all cursor-pointer"
+            >
+              <Laptop className="w-4 h-4" />
+              <span
+                className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-slate-900 ${
+                  runnerOnline ? "bg-emerald-400" : "bg-rose-500"
+                }`}
+              />
+            </button>
           </div>
         </div>
+
+        {/* Yerel Ajan Çalışma Modu Şeridi (Sadece PC / Mac CLI seçiliyken görünür) */}
+        {isLocalCliModel(selectedModel) && (
+          <div className="shrink-0 px-3 py-1.5 border-b border-slate-800/80 bg-slate-900/60 flex items-center justify-between gap-2 w-full max-w-full overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => setLocalMode("plan")}
+                className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold inline-flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                  localMode === "plan"
+                    ? "bg-cyan-500/20 border border-cyan-500/50 text-cyan-300"
+                    : "bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span>Plan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocalMode("auto")}
+                className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold inline-flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                  localMode === "auto"
+                    ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-300"
+                    : "bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5 shrink-0" />
+                <span>Geliştir</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSetupModalOpen(true)}
+              className="min-h-[44px] px-2.5 rounded-xl text-[11px] font-bold text-slate-400 hover:text-cyan-300 inline-flex items-center gap-1.5 truncate cursor-pointer min-w-0"
+            >
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  runnerOnline ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+                }`}
+              />
+              <span className="truncate">
+                {runnerOnline ? "PC/Mac Hazır" : "Kurulum Rehberi"}
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Mesaj Akışı (Sıfır Yatay Kaydırma) */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-3 sm:p-6 space-y-4 overscroll-contain w-full max-w-full">
@@ -668,7 +855,30 @@ export function ChatView({
           {isSending && (
             <div className="flex items-center gap-2.5 text-xs text-cyan-400 italic py-2 px-3 sm:px-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/30 w-fit max-w-full">
               <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
-              <span className="truncate">DevStudio çıktıyı analiz ediyor...</span>
+              <span className="truncate">DevStudio gönderiyor...</span>
+            </div>
+          )}
+
+          {activeLocalJob && (
+            <div className="max-w-2xl w-full rounded-3xl bg-slate-900/95 border-2 border-cyan-500/40 p-4 shadow-xl space-y-2.5 overflow-hidden">
+              <div className="flex items-center justify-between gap-2 text-xs font-bold text-cyan-300">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+                  <span className="truncate">{activeLocalJob.description}</span>
+                </span>
+                <span className="text-[11px] font-mono text-cyan-400 font-black shrink-0">
+                  {localJobSeconds}s
+                </span>
+              </div>
+              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden p-0.5 border border-slate-800">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-emerald-400 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${Math.min(92, 18 + localJobSeconds * 2)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                PC / Mac üzerindeki yerel AI CLI proje dosyalarını inceliyor ve yanıtı hazırlıyor. Sayfayı yenileseniz de işlem kesilmez.
+              </p>
             </div>
           )}
 
@@ -704,20 +914,37 @@ export function ChatView({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={`${currentProject?.name} için serbestçe yaz...`}
-              disabled={isSending}
+              placeholder={
+                isLocalCliModel(selectedModel)
+                  ? `${currentProject?.name} (${localMode === "auto" ? "Geliştir" : "Plan"}) için yaz...`
+                  : `${currentProject?.name} için serbestçe yaz...`
+              }
+              disabled={isSending || Boolean(activeLocalJob)}
               className="flex-1 min-w-0 bg-slate-900/90 border border-slate-800 focus:border-cyan-500/80 rounded-2xl px-3.5 sm:px-4 py-3 sm:py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
             />
             <button
               type="submit"
-              disabled={isSending || !input.trim()}
-              className="px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shrink-0 min-w-[42px] min-h-[42px]"
+              disabled={isSending || Boolean(activeLocalJob) || !input.trim()}
+              className="px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shrink-0 min-w-[44px] min-h-[44px]"
             >
               <Send className="w-4 h-4" />
             </button>
           </form>
         </div>
       </div>
+
+      {/* macOS & Windows Runner Kurulum Rehberi Modalı */}
+      <RunnerSetupModal
+        open={setupModalOpen}
+        onClose={() => setSetupModalOpen(false)}
+        runnerToken={runnerToken}
+        initialOnline={runnerOnline}
+        initialDeviceName={deviceName}
+        onStatusChange={(online, dev) => {
+          setRunnerOnline(online);
+          if (dev) setDeviceName(dev);
+        }}
+      />
     </div>
   );
 }

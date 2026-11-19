@@ -1,8 +1,21 @@
 import { extractGeminiText } from "@/lib/ai/gemini-parser";
+import {
+  encodeLocalCliCommand,
+  isLocalCliCommand,
+  isLocalCliModel,
+  parseLocalCliModel,
+} from "@/lib/runner/local-cli";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { chatSessions, chatMessages, approvals, projects, userApiKeys } from "@/lib/db/schema";
+import {
+  chatSessions,
+  chatMessages,
+  approvals,
+  projects,
+  userApiKeys,
+  runnerTokens,
+} from "@/lib/db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { decryptSecret } from "@/lib/crypto/vault";
 
@@ -97,14 +110,25 @@ export async function GET(req: Request) {
     const sessionApprovals = await db
       .select()
       .from(approvals)
-      .where(eq(approvals.sessionId, activeSession.id));
+      .where(eq(approvals.sessionId, activeSession.id))
+      .orderBy(desc(approvals.createdAt));
+
+    // Normal onay kartları (yerel CLI kuyruk kayıtlarını hariç tut)
+    const normalApprovals = sessionApprovals.filter((a) => !isLocalCliCommand(a.command));
+
+    // Aktif çalışan bir Yerel CLI görevi varsa (sayfa yenilense bile canlı takip için)
+    const activeLocalAppr = sessionApprovals.find(
+      (a) =>
+        isLocalCliCommand(a.command) &&
+        (a.status === "approved" || a.status === "running")
+    );
 
     const messages = rawMessages.map((m) => {
-      let app = sessionApprovals.find(
-        (a) => a.sessionId === m.sessionId && m.role === 'assistant' && m.content.includes(a.command)
+      let app = normalApprovals.find(
+        (a) => a.sessionId === m.sessionId && m.role === "assistant" && m.content.includes(a.command)
       );
-      if (!app && m.role === 'assistant') {
-        app = sessionApprovals.find(
+      if (!app && m.role === "assistant") {
+        app = normalApprovals.find(
           (a) =>
             a.sessionId === m.sessionId &&
             Math.abs(new Date(a.createdAt).getTime() - new Date(m.createdAt).getTime()) < 10000
@@ -119,10 +143,35 @@ export async function GET(req: Request) {
       };
     });
 
+    // Canlı Runner durumunu da döndür
+    const runnerRows = await db
+      .select()
+      .from(runnerTokens)
+      .where(eq(runnerTokens.userId, userId))
+      .limit(1);
+
+    const runnerRow = runnerRows[0];
+    const runnerFresh =
+      Boolean(runnerRow?.isOnline) &&
+      Boolean(runnerRow?.lastSeenAt) &&
+      Date.now() - new Date(runnerRow!.lastSeenAt!).getTime() < 90_000;
+
     return NextResponse.json({
       sessions,
       activeSession,
       messages,
+      activeLocalJob: activeLocalAppr
+        ? {
+            id: activeLocalAppr.id,
+            description: activeLocalAppr.description,
+            status: activeLocalAppr.status,
+            createdAt: activeLocalAppr.createdAt,
+          }
+        : null,
+      runnerStatus: {
+        isOnline: runnerFresh,
+        deviceName: runnerRow?.deviceName || "",
+      },
     });
   } catch (error: any) {
     console.error("GET /api/chat error:", error);
@@ -172,7 +221,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    const { projectId, sessionId, model, content, isObservation } = body;
+    const { projectId, sessionId, model, content, isObservation, localMode } = body;
 
     if (!projectId || !content) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -214,6 +263,90 @@ export async function POST(req: Request) {
     const projectName = currentProject?.name || "Proje";
     const projectPath = currentProject?.localPath || "";
     const deployCmd = currentProject?.deployCommand || "";
+
+    // 0.5. YEREL CLI AJAN MODU (PC / Mac Runner üzerinden Antigravity / Claude / Gemini CLI)
+    if (!isObservation && isLocalCliModel(model)) {
+      const parsedCli = parseLocalCliModel(model);
+      if (!parsedCli) {
+        return NextResponse.json({ error: "Geçersiz yerel CLI modeli" }, { status: 400 });
+      }
+
+      // Kullanıcının Runner'ı çevrimiçi mi kontrol et
+      const runnerRows = await db
+        .select()
+        .from(runnerTokens)
+        .where(eq(runnerTokens.userId, userId))
+        .limit(1);
+
+      const runnerRow = runnerRows[0];
+      const isRunnerOnlineNow =
+        Boolean(runnerRow?.isOnline) &&
+        Boolean(runnerRow?.lastSeenAt) &&
+        Date.now() - new Date(runnerRow!.lastSeenAt!).getTime() < 90_000;
+
+      if (!isRunnerOnlineNow) {
+        return NextResponse.json(
+          {
+            error:
+              "Bilgisayarınızdaki DevStudio Runner çevrimdışı görünüyor. Kurulum Rehberi'nden başlatın veya Bulut API modelini seçin.",
+            code: "RUNNER_OFFLINE",
+          },
+          { status: 409 }
+        );
+      }
+
+      // Kullanıcı mesajını kaydet
+      const uRes = await db
+        .insert(chatMessages)
+        .values({
+          sessionId: currentSessionId,
+          role: "user",
+          content,
+        })
+        .returning();
+
+      const mode: "plan" | "auto" = localMode === "auto" ? "auto" : "plan";
+      const encodedCmd = encodeLocalCliCommand({
+        engine: parsedCli.engine,
+        model: parsedCli.modelId,
+        mode,
+        prompt: content,
+        sessionId: currentSessionId,
+      });
+
+      const jobDesc = `${parsedCli.displayName} • ${mode === "auto" ? "Geliştir Modu" : "Plan Modu"}`;
+
+      const jobRes = await db
+        .insert(approvals)
+        .values({
+          sessionId: currentSessionId,
+          projectId,
+          command: encodedCmd,
+          description: jobDesc,
+          riskLevel: mode === "auto" ? "medium" : "low",
+          status: "approved",
+          respondedAt: new Date(),
+        })
+        .returning();
+
+      await db
+        .update(chatSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(chatSessions.id, currentSessionId));
+
+      return NextResponse.json({
+        sessionId: currentSessionId,
+        userMessage: uRes[0],
+        assistantMessage: null,
+        isLocalCliJob: true,
+        localJob: {
+          id: jobRes[0].id,
+          description: jobRes[0].description,
+          status: jobRes[0].status,
+          createdAt: jobRes[0].createdAt,
+        },
+      });
+    }
 
     // 1. Kullanıcı mesajı (Eğer observation değilse kaydet)
     let savedUserMsg: any = null;

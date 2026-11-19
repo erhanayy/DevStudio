@@ -690,4 +690,39 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 1. KVKK / Kullanıcı Sözleşmesi zorunlu onay kalkanı (`ContractEnforcer`) ve Şifremi Unuttum akışı.
 2. Abonelik katmanı (**\$7–\$12 / ay** BYOK + Yerel CLI Köprüsü planı) ve Landing Page.
 
+---
+
+## 22. Mac + Windows Çapraz Platform Runner Yerel CLI Ajan Köprüsü & Kurulum Rehberi
+
+### 22.1. Geliştirme Öncesi Güvenlik Etiketi (Checkpoint)
+- Geliştirmeye başlamadan önce mevcut durum (`b29f5fd`) GitHub üzerinde **`pre-local-cli-v2.3.0`** etiketiyle (tag) mühürlendi.
+
+### 22.2. Mimari ve Çapraz Platform Uygulama Özeti
+1. **Ortak Yerel CLI Protokolü ([lib/runner/local-cli.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/runner/local-cli.ts)):**
+   - `local:agy:gemini-4-neon-high`, `local:agy:claude-sonnet-5-5-high`, `local:agy:claude-opus-5-5-high`, `local:agy:gemini-4-hydrogen-high`, `local:agy:gemini-3.8-flash-high`, `local:claude:default` ve `local:gemini:default` seçenekleri tanımlandı.
+   - Veritabanı şema migration riski olmadan mevcut `approvals` tablosunda `__LOCAL_CLI__::` ön ekli asenkron görev kuyruğu protokolü kuruldu.
+2. **Mac / Windows / Linux Çapraz Platform Runner ([runner-cli/devstudio-runner.mjs](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/devstudio-runner.mjs)):**
+   - `os.platform()` ile macOS, Windows (`win32`) ve Linux üzerinde `agy`, `claude` ve `gemini` CLI binary'lerini otomatik algılar (`windowsHide: true` destekli).
+   - Her sohbet oturumu (`sessionId`) için dönen `conversation_id` / `session_id` bilgisini `os.homedir()/.devstudio-runner-sessions.json` dosyasında saklayarak çok turlu bağlamı korur.
+   - `Plan` (`--mode plan`, salt okunur) ve `Geliştir` (`--mode auto` + otomatik push/deploy yasağı enjeksiyonu + `git status --short` değişen dosya özeti) modlarını destekler.
+   - Görev yoklama aralığı 2 saniyeye hızlandırıldı; uzun süren CLI işlemleri heartbeat'i bloklamadan arka planda yürütülür.
+3. **7/24 & Tatil Modu Uyku Korumalı Scriptler:**
+   - macOS: [runner-cli/start-runner-mac.sh](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/start-runner-mac.sh) (`caffeinate -dims` + 3s otomatik yeniden başlatma).
+   - Windows: [runner-cli/start-runner-windows.ps1](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/start-runner-windows.ps1) (PowerShell `SetThreadExecutionState` uyku koruması + otomatik yeniden başlatma).
+4. **Tek Komutla İndirme Uç Noktası ([app/api/runner/download/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/runner/download/route.ts)):**
+   - `GET /api/runner/download` (`?script=mac` veya `?script=windows`) üzerinden en güncel Runner ve 7/24 scriptlerini doğrudan sunar.
+5. **Sunucu Asenkron İşleme ([app/api/chat/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/chat/route.ts), [app/api/runner/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/runner/route.ts)):**
+   - Yerel CLI modeli seçiliyse Runner'ın canlı çevrimiçi (`lastSeenAt < 90s`) durumu kontrol edilir; çevrimdışıysa HTTP 409 (`RUNNER_OFFLINE`) ile kullanıcı uyarılır ve kurulum rehberi açılır.
+   - Runner yerel CLI yanıtını döndürdüğünde bulut Gemini API tekrar çağrılmaz (sıfır ek API maliyeti ve sıfır timeout); yanıt ve değişen dosyalar doğrudan `assistant` mesajı olarak kaydedilir.
+6. **Mobil-First Arayüz & Adım Adım Kurulum Rehberi ([components/chat/runner-setup-modal.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/runner-setup-modal.tsx), [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx), [app/(dashboard)/settings/settings-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/settings/settings-view.tsx)):**
+   - Chat üst barında, sol menüde ve Ayarlar ekranında tıklanabilir (`min-w-[44px] min-h-[44px]`) **Kurulum Rehberi** ikonu eklendi.
+   - Modal içinde **🍎 macOS / Linux** ve **🪟 Windows (PowerShell)** sekmeleri, 4 adımlı kurulum, kullanıcı token'ı gömülü tek tıkla kopyalanabilir komutlar ve canlı bağlantı göstergesi yer alır.
+   - Chat kokpitinde Yerel Ajan seçiliyken **🛡️ Plan / 🛠️ Geliştir** mod geçişi ve canlı süre sayaçlı çalışma kartı eklendi.
+
+### 22.3. Doğrulama
+- `node --check runner-cli/devstudio-runner.mjs`: **0 hata**.
+- `npm run build` (Next.js 16 Turbopack + TypeScript): **0 hata** (`Compiled successfully in 2.1s`, `Finished TypeScript in 1.8s`).
+- **GitHub & Dağıtım Durumu (Kural 2 & 3):** Değişiklikler yerelde hazırlandı; kullanıcı onayı olmadan push veya Cloud Run deploy yapılmadı.
+
+
 

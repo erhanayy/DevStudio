@@ -19,9 +19,17 @@ export default async function SettingsPage() {
     .from(userApiKeys)
     .where(eq(userApiKeys.userId, userId));
 
+  const runnerRow = tokens[0];
+  const isRunnerOnline =
+    Boolean(runnerRow?.isOnline) &&
+    Boolean(runnerRow?.lastSeenAt) &&
+    Date.now() - new Date(runnerRow!.lastSeenAt!).getTime() < 90_000;
+
   return (
     <SettingsView
-      runnerToken={tokens[0]?.token || ""}
+      runnerToken={runnerRow?.token || ""}
+      isRunnerOnline={isRunnerOnline}
+      runnerDeviceName={runnerRow?.deviceName || ""}
       hasGeminiKey={keys.some((k) => k.provider === "gemini")}
       hasClaudeKey={keys.some((k) => k.provider === "anthropic")}
       hasOpenaiKey={keys.some((k) => k.provider === "openai")}
