@@ -190,7 +190,12 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
 
             const obsPrompt = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n[MAC RUNNER TAMAMLANDI]:\nÇalıştırılan Komut: "${appr.command}"\nÇıkış Kodu: ${finalExitCode}\nTerminal Çıktısı:\n\`\`\`\n${cleanOutput || "(Çıktı boş)"}\n\`\`\`\n\nBu çıktıyı incele; kullanıcıya ne gördüğünü açıkla, işlemin bittiğini teyit et ve sıradaki adımı öner.`;
 
-            const candidateModels = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"];
+            const candidateModels = [
+              "gemini-3.8-flash",
+              "gemini-3.5-flash",
+              "gemini-3.5-flash-lite",
+              "gemini-3.1-flash-lite",
+            ];
 
             for (const m of candidateModels) {
               try {

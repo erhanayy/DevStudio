@@ -109,13 +109,14 @@ export async function sendMessageAction({
 
   // 4. Gemini API çağrısı (Varsa dene)
   if (apiKey) {
+    const selectedOrPreferred = model && !model.includes("2.0") ? model : "gemini-3.8-flash";
     const candidateModels = [
-      model && !model.includes("2.0") && !model.includes("3.8") ? model : "gemini-3.5-flash-lite",
+      selectedOrPreferred,
+      "gemini-3.8-flash",
+      "gemini-3.5-flash",
       "gemini-3.5-flash-lite",
       "gemini-3.1-flash-lite",
-      "gemini-flash-lite-latest",
-      "gemini-3.5-flash",
-    ];
+    ].filter((val, idx, arr) => arr.indexOf(val) === idx);
 
     const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
 Kullanıcı seninle Türkçe konuşuyor. Tıpkı Antigravity veya Claude ile yaptığı gibi tamamen serbest, doğal ve gündelik bir dille sohbet eder; mimari tartışır, soru sorar, fikir danışır veya geliştirme talep eder.

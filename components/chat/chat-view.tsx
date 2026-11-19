@@ -77,7 +77,7 @@ export function ChatView({
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.5-flash-lite");
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.8-flash");
   const [input, setInput] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -526,14 +526,17 @@ export function ChatView({
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1 w-full truncate"
               >
+                <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
+                  🌟 3.8 Flash (Önerilen)
+                </option>
                 <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
                   ⚡ 3.5 Flash Lite
                 </option>
-                <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
-                  🧠 3.1 Flash Lite
-                </option>
                 <option value="gemini-3.5-flash" className="bg-slate-900 text-white">
                   🚀 3.5 Flash
+                </option>
+                <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
+                  🧠 3.1 Flash Lite
                 </option>
               </select>
             </div>
