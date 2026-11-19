@@ -633,3 +633,61 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 2. **Derleme Doğrulaması:** `npm run build` (Next.js 16 Turbopack + TypeScript) **0 hata** ile tamamlandı (`Compiled successfully in 3.0s`, `Finished TypeScript in 2.5s`).
 3. **GitHub & Dağıtım Durumu (Kural 2 & 3):** Değişiklikler yalnızca yerelde hazırlandı; kullanıcı onayı olmadan push veya Cloud Run deploy yapılmadı.
 
+---
+
+## 21. Ürünleştirme Boşluk Analizi (Gap Analysis) ve Tam Vizyon Yol Haritası (`v2.3.0-stable` → Ürün)
+
+### 21.1. Güvenli Geri Dönüş Noktası (Checkpoint)
+- Mevcut çalışan sürüm (`v2.3.0`, Cloud Run `devstudio-00025-cfj`, commit `b53d9f7`), GitHub üzerinde **`v2.3.0-stable`** etiketiyle (tag/label) mühürlendi.
+- Amaç: Büyük ürünleşme mimarisine geçişte risk almamak; hedef deneyim beklendiği gibi çalışmazsa mevcut kararlı kişisel araca sıfır kayıpla dönülebilmesi.
+
+### 21.2. Mevcut Durum (`v2.3.0-stable`) vs. Hedef Vizyon (`Analysis.md` Bölüm 1–6) Karşılaştırması
+
+| Yetenek Alanı | Hedef Vizyon (Bölüm 1–6) | Mevcut Durum (`v2.3.0-stable`) | Fark / Eksik Kritik Seviye |
+| :--- | :--- | :--- | :--- |
+| **1. Kodlama Zekası & Ajan Döngüsü** | Dosyaları okuyan, çok adımlı kod yazan, test koşup hatasını kendi düzelten otonom ajan | Tek seferde 1 `bash` komutu öneren basit chat döngüsü; proje dosyalarını göremiyor | 🔴 **En Kritik** (Diğerlerinden asıl fark burası) |
+| **2. Çoklu AI Sağlayıcı & Maliyet** | Gemini + Claude + OpenAI BYOK + uygun aylık maliyet | DB ve Ayarlar UI hazır, ancak `api/chat` yalnızca Gemini çağırıyor; pahalı modellerde API maliyeti yüksek | 🔴 **En Kritik** |
+| **3. Yerel CLI Köprüsü (Süper Güç)** | Kullanıcının mevcut aboneliklerini (Claude Code / Gemini CLI / Codex) sıfır ek API maliyetiyle mobilden yönetme | Yok (Runner sadece düz `exec` bash çalıştırıyor) | 🔴 **Fark Yaratan Kaldıraç** |
+| **4. Kod Diff & Onay Politikaları** | Mobil `CodeDiffCard` + 3 Onay Seviyesi (Katı / Dengeli / Tam Otonom) | Sadece ham komut gösteren `ApprovalCard` var; onay politikası ayarı yok | 🟠 **Yüksek** |
+| **5. Görsel & Sesli Talimat** | Ekran görüntüsü yükleyip UI hatası çözdürme + sesli talimat | Dosya seçme ikonu var ama backend'e gitmiyor (`/api/upload` yok); sesli giriş yok | 🟠 **Yüksek** |
+| **6. Canlı Log & Runner Kurulumu** | Canlı akan terminal logları + tek komut `npx devstudio-runner` / Tray App | 4 sn HTTP polling, komut bitene kadar log yok, npm paketi henüz yayınlanmadı | 🟡 **Orta** |
+| **7. Ürünleşme & PWA & Üyelik** | `devstudio.bugunai.com`, PWA + Push Bildirim, KVKK/ContractEnforcer, Şifremi Unuttum, Abonelik | Temel Login/Register var; custom domain, PWA push, yasal kalkan ve ödeme yok | 🟡 **Son Faz (Doğrulamadan Sonra)** |
+
+### 21.3. Rakiplerden Gerçek Farkı Yaratacak Çekirdek Strateji
+1. **Tek Başına "Mobil Chat + Bash" Ürün Olmaz:** Sadece buluttan Gemini'a prompt atıp `bash` çalıştırmak hem kalitesiz kalır (AI dosyaları göremediği için sık hata yapar) hem de kaliteli model (Gemini 4 Neon / Claude Opus) kullanınca yüksek token maliyeti doğurur.
+2. **DevStudio'yu Benzersiz Kılacak Mimari — Çift Motorlu Hibrit Runner:**
+   - **Mod 1 — Yerel Ajan CLI Köprüsü (Öncelikli Fark):** Mac/PC Runner, kullanıcının bilgisayarında kurulu **`claude` (Claude Code)** veya **`gemini` (Gemini CLI)** aracını doğrudan ilgili proje dizininde tetikler.
+     - *Avantaj 1:* Ajan proje dosyalarını okur, düzenler, build/test koşar → kalite Antigravity/Claude Code düzeyine çıkar.
+     - *Avantaj 2:* Kullanıcı zaten sahip olduğu Claude Pro / Gemini aboneliğini kullanır → **ekstra API maliyeti \$0**.
+     - *Avantaj 3:* DevStudio **\$7–\$12 / ay** sabit platform ücretiyle (yüksek marj, sıfır token zararı) satılabilir hale gelir.
+   - **Mod 2 — Çoklu Bulut BYOK Motoru (Yedek / Hafif İşler):** Ayarlardan girilen `Gemini (4 Hydrogen / 3-Flash)`, `Anthropic (Claude Sonnet)` ve `OpenAI` anahtarlarını tek bir `lib/ai/provider-router.ts` katmanından çalıştırma.
+
+### 21.4. Aşamalı Uygulama Planı & "Ürün mü / Kişisel mi?" Karar Kapısı
+
+#### Faz 1 — Çekirdek Sıçrama (Önce Ürünün Gerçekten Çalıştığını Kanıtla)
+1. **Çoklu Sağlayıcı Router (`lib/ai/provider-router.ts`):** `user_api_keys` kasasındaki Gemini (`gemini-4-hydrogen`, `gemini-3-flash-preview`), Claude (`claude-sonnet-4-...`) ve OpenAI anahtarlarını canlı çalıştırma.
+2. **Runner Yerel Ajan Köprüsü (`runner-cli`):** Kullanıcının Mac'inde yüklü `claude` / `gemini` CLI'larını proje klasöründe çalıştırıp yapılandırılmış çıktıyı + `git diff` özetini mobil sohbete aktarma.
+3. **Ekran Görüntüsü / Görsel Desteği:** Chat'teki mevcut ataç butonunu gerçek multimodal görüntü iletimine bağlama (telefondan SS at → AI görseli görsün).
+4. **Canlı Log Akışı:** Komut/ajan çalışırken çıktının parça parça (chunked/SSE) ekrana akması.
+
+> **🚦 GO / NO-GO KARAR KAPISI (Faz 1 Sonu):**
+> Faz 1 bittikten sonra 1 hafta boyunca yalnızca telefondan DevStudio ile gerçek özellik geliştirme testi yapılır.
+> - **Başarılıysa (bilgisayar başına oturmadan 3–5 gerçek işi takılmadan çözüyorsa):** Faz 2–4 ile ticari ürüne dönüştürülür.
+> - **Başarısızsa:** Üyelik/ödeme/KVKK eforuna hiç girilmez; `v2.3.0-stable` veya Faz 1 kişisel kullanım aracı olarak tutulur.
+
+#### Faz 2 — Mobil Stüdyo Deneyimi (UX Farkı)
+1. **`CodeDiffCard` (`components/chat/code-diff-card.tsx`):** Ajanın yaptığı `git diff` değişikliklerini mobilde sıfır yatay kaydırma ile kırmızı/yeşil kart olarak önizleme ve tek dokunuşla Onayla / Geri Al (`git checkout`).
+2. **3 Seviyeli Akıllı Onay Politikası:** Katı Güvenlik / Akıllı Geliştirici / Tam Otonom seçimi (Ayarlar'dan).
+3. **Sesli Talimat (Voice-to-Prompt):** Mesaj kutusuna mikrofon butonu ekleyip Türkçe konuşarak görev verme.
+4. **PWA & Push Bildirim:** Telefon ekranı kilitliyken *"Onay bekliyor"* veya *"İşlem tamamlandı"* bildirimi.
+
+#### Faz 3 — Dış Kullanıcı Kurulumu & Alan Adı
+1. `npx devstudio-runner --token=...` paketinin npm üzerinde yayınlanması (ve sonrasında Mac menü çubuğu / Windows Tray uygulaması).
+2. `devstudio.bugunai.com` özel alan adı + SSL eşlemesi.
+3. 3 dakikalık ilk kurulum (Onboarding) sihirbazı.
+
+#### Faz 4 — Ticari Ürün Katmanı
+1. KVKK / Kullanıcı Sözleşmesi zorunlu onay kalkanı (`ContractEnforcer`) ve Şifremi Unuttum akışı.
+2. Abonelik katmanı (**\$7–\$12 / ay** BYOK + Yerel CLI Köprüsü planı) ve Landing Page.
+
+
