@@ -4,6 +4,7 @@ Bu dokümanda DevStudio projesinin Git/GitHub gönderim tarihçesi tutulacaktır
 
 | Tarih | Commit Özeti | Dal (Branch) | Onaylayan | Notlar |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-19 | `feat(ai): integrate gemini-3.8-flash as primary model with resilient multi-tier fallback` (`5ea94d4`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Gemini 3.8 Flash amiral gemisi model entegre edildi, 3.8 engeli kaldırıldı, 3.5/3.1 dinamik yedekleme zinciri ve arayüz seçicisi eklendi. |
 | 2026-11-19 | `fix(mobile): optimize cockpit bar, prevent menu icon overlap, and enforce zero-horizontal-scroll` (`b4368f1`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Sol menü butonunun ezilmesi engellendi, model seçici sadeleştirildi ve sıfır yatay kaydırma garantisi sağlandı. |
 | 2026-11-18 | `fix(prompt): add document append safeguard to prevent truncating Analysis.md and docs` (`abcc42b`) | `main` | Erhan Ayyıldız | Asistanın Analysis.md ve dokümanların üzerine yazmasını engelleyen Kural 4 entegre edildi. Cloud Run revizyonu: devstudio-00013-ljc. |
 | 2026-11-18 | `docs(agents): add multi-project documentation isolation rule` (`80b8e1b`) | `main` | Erhan Ayyıldız | Çoklu proje dokümantasyon izolasyon kuralı eklendi. |
