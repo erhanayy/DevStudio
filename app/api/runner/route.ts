@@ -1,5 +1,9 @@
 import { extractGeminiText } from "@/lib/ai/gemini-parser";
-import { isLocalCliCommand, parseLocalCliCommand } from "@/lib/runner/local-cli";
+import {
+  extractLocalCliApproval,
+  isLocalCliCommand,
+  parseLocalCliCommand,
+} from "@/lib/runner/local-cli";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runnerTokens, projects, approvals, chatMessages, userApiKeys } from "@/lib/db/schema";
@@ -130,11 +134,14 @@ export async function POST(req: Request) {
                 ? ` • ${payload.durationSeconds}s`
                 : "";
 
+            const extracted = extractLocalCliApproval(cleanOutput);
+            const displayOutput = extracted.cleanText;
+
             const changedFiles: string[] = Array.isArray(payload?.changedFiles)
               ? payload.changedFiles.filter((f: unknown) => typeof f === "string" && f.trim())
               : [];
 
-            let assistantReply = cleanOutput || "(Yerel CLI ajanından boş yanıt döndü)";
+            let assistantReply = displayOutput || "(Yerel CLI ajanından boş yanıt döndü)";
 
             if (changedFiles.length > 0) {
               const fileLines = changedFiles.map((f) => `- \`${f}\``).join("\n");
@@ -150,11 +157,23 @@ export async function POST(req: Request) {
               content: assistantReply,
             });
 
+            // Yerel Ajan mobil onay kartı istediyse (git push, gcloud deploy vb.) Runner'a özel bekleyen onay kartı oluştur
+            if (extracted.approval?.command) {
+              await db.insert(approvals).values({
+                sessionId: appr.sessionId,
+                projectId: appr.projectId,
+                command: extracted.approval.command,
+                description: extracted.approval.description,
+                riskLevel: extracted.approval.riskLevel,
+                status: "pending",
+              });
+            }
+
             await db
               .update(approvals)
               .set({
                 status: finalStatus,
-                output: cleanOutput,
+                output: displayOutput || cleanOutput,
                 exitCode: finalExitCode,
                 analysis: assistantReply,
               })

@@ -1,7 +1,15 @@
 export const LOCAL_CLI_PREFIX = "__LOCAL_CLI__::";
+export const LOCAL_APPROVAL_START = "<<<DEVSTUDIO_APPROVAL>>>";
+export const LOCAL_APPROVAL_END = "<<<END_DEVSTUDIO_APPROVAL>>>";
 
 export type LocalCliEngine = "agy" | "claude" | "gemini";
 export type LocalCliMode = "plan" | "auto";
+
+export interface LocalCliApprovalRequest {
+  command: string;
+  description: string;
+  riskLevel: "low" | "medium" | "high" | "critical";
+}
 
 export interface LocalCliPayload {
   engine: LocalCliEngine;
@@ -109,6 +117,61 @@ export function parseLocalCliCommand(command: string): LocalCliPayload | null {
     return parsed as LocalCliPayload;
   } catch {
     return null;
+  }
+}
+
+export function extractLocalCliApproval(rawText: string): {
+  cleanText: string;
+  approval: LocalCliApprovalRequest | null;
+} {
+  if (!rawText || !rawText.includes(LOCAL_APPROVAL_START)) {
+    return { cleanText: rawText, approval: null };
+  }
+
+  const pattern = new RegExp(
+    `${LOCAL_APPROVAL_START}\\s*([\\s\\S]*?)\\s*${LOCAL_APPROVAL_END}`,
+    "m"
+  );
+  const match = rawText.match(pattern);
+  if (!match || !match[1]) {
+    return { cleanText: rawText, approval: null };
+  }
+
+  const cleanText = rawText.replace(pattern, "").trim();
+  const inner = match[1]
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(inner);
+    const command = typeof parsed?.command === "string" ? parsed.command.trim() : "";
+    if (!command) {
+      return { cleanText, approval: null };
+    }
+    const description =
+      typeof parsed?.description === "string" && parsed.description.trim()
+        ? parsed.description.trim()
+        : "PC / Mac Runner üzerinde işlem yürütülecek";
+    const allowedRisks = new Set(["low", "medium", "high", "critical"]);
+    const rawRisk = typeof parsed?.riskLevel === "string" ? parsed.riskLevel.toLowerCase() : "";
+    const inferredRisk: "low" | "medium" | "high" | "critical" =
+      command.includes("deploy") || command.includes("push") || command.includes("rm")
+        ? "critical"
+        : command.includes("build") || command.includes("install")
+        ? "high"
+        : "medium";
+    const riskLevel = allowedRisks.has(rawRisk)
+      ? (rawRisk as "low" | "medium" | "high" | "critical")
+      : inferredRisk;
+
+    return {
+      cleanText,
+      approval: { command, description, riskLevel },
+    };
+  } catch {
+    return { cleanText: rawText, approval: null };
   }
 }
 

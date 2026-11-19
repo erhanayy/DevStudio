@@ -123,16 +123,25 @@ export async function GET(req: Request) {
         (a.status === "approved" || a.status === "running")
     );
 
+    const usedApprovalIds = new Set<string>();
     const messages = rawMessages.map((m) => {
       let app = normalApprovals.find(
-        (a) => a.sessionId === m.sessionId && m.role === "assistant" && m.content.includes(a.command)
+        (a) =>
+          !usedApprovalIds.has(a.id) &&
+          a.sessionId === m.sessionId &&
+          m.role === "assistant" &&
+          m.content.includes(a.command)
       );
       if (!app && m.role === "assistant") {
         app = normalApprovals.find(
           (a) =>
+            !usedApprovalIds.has(a.id) &&
             a.sessionId === m.sessionId &&
             Math.abs(new Date(a.createdAt).getTime() - new Date(m.createdAt).getTime()) < 10000
         );
+      }
+      if (app) {
+        usedApprovalIds.add(app.id);
       }
       return {
         id: m.id,
@@ -305,7 +314,7 @@ export async function POST(req: Request) {
         })
         .returning();
 
-      const mode: "plan" | "auto" = localMode === "auto" ? "auto" : "plan";
+      const mode: "plan" | "auto" = localMode === "plan" ? "plan" : "auto";
       const encodedCmd = encodeLocalCliCommand({
         engine: parsedCli.engine,
         model: parsedCli.modelId,

@@ -78,6 +78,7 @@ interface ChatViewProps {
   runnerToken: string;
   isRunnerOnline: boolean;
   runnerDeviceName?: string;
+  hasGeminiKey?: boolean;
 }
 
 export function ChatView({
@@ -85,6 +86,7 @@ export function ChatView({
   runnerToken,
   isRunnerOnline,
   runnerDeviceName = "",
+  hasGeminiKey = false,
 }: ChatViewProps) {
   const { t } = useTranslation();
   const [projects] = useState<Project[]>(initialProjects);
@@ -106,7 +108,7 @@ export function ChatView({
   const [selectedModel, setSelectedModel] = useState<string>(
     isRunnerOnline ? "local:agy:gemini-4-neon-high" : "gemini-3-flash-preview"
   );
-  const [localMode, setLocalMode] = useState<LocalCliMode>("plan");
+  const [localMode, setLocalMode] = useState<LocalCliMode>("auto");
   const [activeLocalJob, setActiveLocalJob] = useState<ActiveLocalJob | null>(null);
   const [localJobSeconds, setLocalJobSeconds] = useState<number>(0);
 
@@ -724,34 +726,34 @@ export function ChatView({
           </div>
         </div>
 
-        {/* Yerel Ajan Çalışma Modu Şeridi (Sadece PC / Mac CLI seçiliyken görünür) */}
+        {/* Yerel Ajan Çalışma Modu Şeridi (Varsayılan Geliştir • Solda Opsiyonel Plan Kilidi) */}
         {isLocalCliModel(selectedModel) && (
           <div className="shrink-0 px-3 py-1.5 border-b border-slate-800/80 bg-slate-900/60 flex items-center justify-between gap-2 w-full max-w-full overflow-hidden">
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
-                onClick={() => setLocalMode("plan")}
+                onClick={() => setLocalMode((prev) => (prev === "plan" ? "auto" : "plan"))}
+                title={
+                  localMode === "plan"
+                    ? "Salt-okunur Plan kilidi açık (Geliştir'e dönmek için dokun)"
+                    : "Yalnızca inceleme/tasarım için Plan kilidini aç"
+                }
                 className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold inline-flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                   localMode === "plan"
-                    ? "bg-cyan-500/20 border border-cyan-500/50 text-cyan-300"
-                    : "bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200"
+                    ? "bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 shadow-sm shadow-cyan-500/20"
+                    : "bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30"
                 }`}
               >
                 <Shield className="w-3.5 h-3.5 shrink-0" />
-                <span>Plan</span>
+                <span>{localMode === "plan" ? "Plan Açık" : "Plan"}</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setLocalMode("auto")}
-                className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold inline-flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-                  localMode === "auto"
-                    ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-300"
-                    : "bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Wrench className="w-3.5 h-3.5 shrink-0" />
-                <span>Geliştir</span>
-              </button>
+
+              {localMode === "auto" && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400/90 truncate">
+                  <Wrench className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Geliştir</span>
+                </span>
+              )}
             </div>
 
             <button
@@ -940,6 +942,8 @@ export function ChatView({
         runnerToken={runnerToken}
         initialOnline={runnerOnline}
         initialDeviceName={deviceName}
+        projectCount={projects.length}
+        hasGeminiKey={hasGeminiKey}
         onStatusChange={(online, dev) => {
           setRunnerOnline(online);
           if (dev) setDeviceName(dev);

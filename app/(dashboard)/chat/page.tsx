@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { projects, runnerTokens } from "@/lib/db/schema";
+import { projects, runnerTokens, userApiKeys } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { ChatView } from "@/components/chat/chat-view";
 
@@ -13,6 +13,13 @@ export default async function ChatPage() {
     .select()
     .from(projects)
     .where(eq(projects.userId, userId));
+
+  // API anahtar durumunu kontrol et (Kurulum Rehberi özeti için)
+  const keys = await db
+    .select({ provider: userApiKeys.provider })
+    .from(userApiKeys)
+    .where(eq(userApiKeys.userId, userId));
+  const hasGeminiKey = keys.some((k) => k.provider === "gemini");
 
   // Runner token getir veya oluştur
   let tokens = await db
@@ -45,6 +52,7 @@ export default async function ChatPage() {
       runnerToken={token}
       isRunnerOnline={isRunnerOnline}
       runnerDeviceName={runnerRow?.deviceName || ""}
+      hasGeminiKey={hasGeminiKey}
     />
   );
 }

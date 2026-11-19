@@ -724,5 +724,65 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 - `npm run build` (Next.js 16 Turbopack + TypeScript): **0 hata** (`Compiled successfully in 2.1s`, `Finished TypeScript in 1.8s`).
 - **GitHub & Dağıtım Durumu (Kural 2 & 3):** Değişiklikler yerelde hazırlandı; kullanıcı onayı olmadan push veya Cloud Run deploy yapılmadı.
 
+---
+
+## 23. Kurulum Rehberi Genişletmesi (Proje & Kasa Adımları), Kasa Bilgilendirmesi ve Kurulum Sihirbazı Roadmap Kaydı
+
+### 23.1. Kullanıcı Talebi ve Analiz
+- Kullanıcı, sağ üstten açılan **PC / Mac Runner Kurulum Rehberi** ekranında yalnızca bilgisayar tarafı adımlarının (Adım 1–4) bulunduğunu, **Projelerim** ve **Kasa & Entegrasyonlar** tanımlamalarının da rehbere dahil edilmesini; ayrıca ilerleyen aşama için **Kasa & Entegrasyonlar** yanına sol-sağ adımlı, silik örnek değerler ve "Nereden elde edilir?" açıklaması içeren bir **Kurulum Sihirbazı (Setup Wizard)** eklenerek [Roadmap.md](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/Roadmap.md) dosyasına işlenmesini istedi.
+- **Zorunlu vs. Opsiyonel Ayrımı:**
+  - **Projelerim (Yerel Dizin Yolu):** Zorunlu — Runner bağlansa dahi proje klasörü tanımlanmadan sohbet başlatılamaz.
+  - **Kasa & Entegrasyonlar (API Anahtarları):** Opsiyonel — `🖥️ Yerel Ajan` (Mac/PC CLI) kullanıldığında bulut API çağrılmaz (`$0` ek maliyet); yalnızca bilgisayar kapalıyken Bulut modelleriyle sohbet etmek için ücretsiz Google AI Studio (Gemini) anahtarı gerekir.
+  - **Claude & OpenAI API Kutuları:** Aktif bulut sohbet motoru şu an yalnızca Gemini anahtarını çağırdığından, kullanıcıyı yanıltmamak için `Yakında (Bulut)` rozeti eklendi.
+
+### 23.2. Uygulanan Değişiklikler
+1. [components/chat/runner-setup-modal.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/runner-setup-modal.tsx):
+   - Üste **3'lü Canlı Hazırlık Özeti** (`Runner`, `Projeler`, `Bulut API`) eklendi (mobil sıfır yatay kaydırma uyumlu).
+   - **ADIM 5 • Proje Klasörünü Tanımla (`ZORUNLU`):** Seçili işletim sistemine göre dinamik yol örneği + `min-h-[44px]` **Projelerim Ekranına Git** butonu eklendi.
+   - **ADIM 6 • Kasa & Entegrasyonlar (`OPSİYONEL`):** Yerel Ajan (`$0`) vs. Bulut yedeği (ücretsiz Gemini) ve otomatik Runner Token açıklaması + `min-h-[44px]` **Kasa & Entegrasyonlara Git** butonu eklendi.
+2. [app/(dashboard)/chat/page.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/chat/page.tsx) & [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx):
+   - `hasGeminiKey` veritabanından sorgulanarak `projectCount` ile birlikte `RunnerSetupModal` bileşenine aktarıldı.
+3. [app/(dashboard)/settings/page.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/settings/page.tsx) & [app/(dashboard)/settings/settings-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/settings/settings-view.tsx):
+   - `projectCount` bilgisi modala aktarıldı.
+   - Kasa kartına *"Yerel Ajan için zorunlu değildir ($0 ek maliyet)"* bilgi şeridi eklendi.
+   - Claude ve OpenAI API alanlarına **`Yakında (Bulut)`** rozeti ve Claude CLI notu eklendi.
+4. [Roadmap.md](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/Roadmap.md):
+   - Eski `-e` kalıntıları temizlendi; **İnteraktif Kurulum Sihirbazı (Setup Wizard — `/setup`)** 5 adımlı masaüstü/mobil tasarımıyla yol haritasına kaydedildi.
+
+### 23.3. Doğrulama
+- `npx tsc --noEmit`: **0 hata**.
+- `npm run build` (Next.js 16.1.6 Turbopack + TypeScript): **0 hata** (`Compiled successfully in 2.0s`, `Finished TypeScript in 1.79s`, 11/11 rota oluşturuldu).
+- **GitHub & Dağıtım Durumu (Kural 2 & 3):** Yalnızca yerelde geliştirildi; kullanıcı onayı olmadan `git push` veya Cloud Run dağıtımı yapılmadı.
+
+---
+
+## 24. Varsayılan Geliştir Modu + `Plan` Kilidi ve Yerel Ajan → Mobil Onay Kartı Köprüsü (`git push` & `deploy`)
+
+### 24.1. Kullanıcı Geri Bildirimi & Mimari Karar
+- **Mod Sürtünmesi:** Kullanıcı, onay verirken ayrıca üstten `Plan → Geliştir` butonunu değiştirmek zorunda kalmanın mobil deneyimi yavaşlattığını belirtti. Karar: Varsayılan mod **`Geliştir` (`auto`)** olsun; solda yalnızca garantiye almak isteyenler için tek bir **`🛡️ Plan`** kilit butonu bulunsun.
+- **Yerel CLI Sandbox Engeli (`git push` / `gcloud run deploy`):** Antigravity CLI (`agy`) kendi sandbox'ında dış ağ ve canlı dağıtım komutlarını masaüstü onayı bekleyerek reddederken, MacBook/PC üzerinde çalışan [devstudio-runner.mjs](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/devstudio-runner.mjs) kullanıcının kendi oturumuyla bu komutları sorunsuz çalıştırabilmektedir.
+- **Çözüm (Onay Kartı Köprüsü):** Yerel Ajan kodlamayı ve yerel commit hazırlığını tamamlayıp yanıt sonuna `<<<DEVSTUDIO_APPROVAL>>> ... <<<END_DEVSTUDIO_APPROVAL>>>` bloğu ekler; sunucu bunu ayrıştırıp mobil ekrana tek dokunuşluk **🛡️ İşlem Onayı Gerekiyor** (`ApprovalCard`) çıkarır. Kullanıcı onayladığında komut doğrudan Mac/PC Runner tarafından çalıştırılır.
+
+### 24.2. Uygulanan Değişiklikler
+1. [lib/runner/local-cli.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/runner/local-cli.ts):
+   - `LOCAL_APPROVAL_START`, `LOCAL_APPROVAL_END` sabitleri ve `extractLocalCliApproval()` ayrıştırıcısı eklendi (ham bloğu metinden temizler, `command`/`description`/`riskLevel` çıkarır).
+2. [app/api/runner/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/runner/route.ts):
+   - Yerel CLI tamamlama akışında `extractLocalCliApproval` çalıştırılarak temiz yanıt kaydedilir; onay bloğu varsa `approvals` tablosuna `pending` kart oluşturulur.
+3. [app/api/chat/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/chat/route.ts):
+   - `GET /api/chat` mesaj-onay eşleştirmesine `usedApprovalIds` tekillik koruması eklendi.
+   - `POST /api/chat` yerel CLI varsayılan modu `auto` (Geliştir) yapıldı.
+4. [runner-cli/devstudio-runner.mjs](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/devstudio-runner.mjs):
+   - Geliştir modu güvenlik yönergesine `git push` / `gcloud run deploy` / `vercel --prod` taleplerinde mobil onay kartı bloğu üretme kuralı eklendi.
+5. [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx):
+   - Varsayılan `localMode` değeri `"auto"` yapıldı.
+   - Üst şerit sadeleştirildi: solda tek dokunuşluk **`🛡️ Plan`** kilit toggle'ı + aktifken cyan `Plan Açık`, kapalıyken zarif yeşil `🛠️ Geliştir` göstergesi.
+
+### 24.3. Doğrulama
+- `node --check runner-cli/devstudio-runner.mjs`: **0 hata**.
+- `npx tsc --noEmit`: **0 hata**.
+- `npm run build` (Next.js 16.1.6 Turbopack): **0 hata** (`Compiled successfully in 2.3s`, `Finished TypeScript in 1.87s`, 11/11 rota hazır).
+
+
+
 
 

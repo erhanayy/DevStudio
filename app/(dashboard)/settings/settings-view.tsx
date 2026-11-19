@@ -11,6 +11,7 @@ interface SettingsViewProps {
   runnerToken: string;
   isRunnerOnline?: boolean;
   runnerDeviceName?: string;
+  projectCount?: number;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
   hasOpenaiKey: boolean;
@@ -20,6 +21,7 @@ export function SettingsView({
   runnerToken: initialToken,
   isRunnerOnline: initialOnline = false,
   runnerDeviceName: initialDeviceName = "",
+  projectCount = 0,
   hasGeminiKey,
   hasClaudeKey,
   hasOpenaiKey,
@@ -156,6 +158,8 @@ export function SettingsView({
         runnerToken={token}
         initialOnline={runnerOnline}
         initialDeviceName={deviceName}
+        projectCount={projectCount}
+        hasGeminiKey={hasGeminiKey}
         onStatusChange={(online, dev) => {
           setRunnerOnline(online);
           setDeviceName(dev);
@@ -165,11 +169,11 @@ export function SettingsView({
       {/* 2. AI Sağlayıcıları Kasası (BYOK - AES-256) */}
       <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-5 shadow-xl">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+          <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
             <Lock className="w-5 h-5" />
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
               <span>{t("settings.apiVaultTitle")}</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 AES-256 Şifreli Kasa
@@ -179,6 +183,12 @@ export function SettingsView({
               API anahtarlarınız veritabanımızda askeri düzeyde şifrelenir; asla düz metin saklanmaz.
             </p>
           </div>
+        </div>
+
+        {/* Yerel Ajan Maliyet / Zorunluluk Bilgilendirmesi */}
+        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-200 leading-relaxed">
+          💡 <strong className="text-emerald-300">Yerel Ajan için zorunlu değildir ($0 ek maliyet):</strong>{" "}
+          Bilgisayarınızdaki CLI ajanını (<strong className="text-white">🖥️ Yerel Ajan</strong>) kullanıyorsanız buraya API anahtarı girmenize gerek yoktur. Yalnızca bilgisayarınız kapalıyken <strong className="text-white">Bulut API modelleri</strong> ile sohbet etmek isterseniz ücretsiz Gemini anahtarınızı ekleyebilirsiniz.
         </div>
 
         <form onSubmit={handleSaveKeys} className="space-y-4">
@@ -207,10 +217,15 @@ export function SettingsView({
 
           {/* Claude API Key */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-300">
-                {t("settings.claudeKey")}
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <label className="font-semibold text-slate-300">
+                  {t("settings.claudeKey")}
+                </label>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  Yakında (Bulut)
+                </span>
+              </div>
               {hasClaudeKey && (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" /> Tanımlı
@@ -223,14 +238,22 @@ export function SettingsView({
               placeholder={hasClaudeKey ? "••••••••••••••••••••••••••••••••" : "sk-ant-..."}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
             />
+            <p className="text-[11px] text-slate-400">
+              Not: Claude Code&apos;u bilgisayarınızdan <strong className="text-slate-300">🖥️ Yerel Ajan</strong> olarak kullanıyorsanız buraya API anahtarı girmeniz gerekmez.
+            </p>
           </div>
 
           {/* OpenAI API Key */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-300">
-                {t("settings.openaiKey")}
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <label className="font-semibold text-slate-300">
+                  {t("settings.openaiKey")}
+                </label>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  Yakında (Bulut)
+                </span>
+              </div>
               {hasOpenaiKey && (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" /> Tanımlı

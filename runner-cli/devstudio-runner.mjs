@@ -365,11 +365,12 @@ async function runLocalCliTask(task, cliPayload) {
     };
   }
 
-  // Güvenlik kuralı: Kullanıcı açıkça istemeden asla push/deploy/yıkıcı silme yapma
+  // Güvenlik kuralı: Kullanıcı açıkça istemeden asla push/deploy/yıkıcı silme yapma;
+  // istediğinde ise sandbox engeline takılmadan Mac/PC Runner Onay Kartı üret.
   const safetyPrefix =
     mode === "plan"
       ? "[DEVSTUDIO MOBİL PLAN MODU]: Yalnızca inceleme, analiz ve tasarım yap. Dosya değiştirme veya terminal komutu çalıştırma. Yanıtını Türkçe, net ve mobil ekranda okunaklı ver.\n\n"
-      : "[DEVSTUDIO MOBİL GELİŞTİR MODU]: Proje içindeki AGENTS.md kurallarına uy. Kod geliştirme, dosya düzenleme ve yerel build/tip testi yapabilirsin. Ancak kullanıcı bu mesajda AÇIKÇA istemedikçe ASLA `git push`, `gcloud run deploy`, `vercel --prod` veya yıkıcı `rm -rf` komutu çalıştırma. Yanıtını Türkçe, özlü ve net ver.\n\n";
+      : `[DEVSTUDIO MOBİL GELİŞTİR MODU]: Proje içindeki AGENTS.md kurallarına uy. Kod geliştirme, dosya düzenleme ve yerel build/tip testi yapabilirsin. ANCAK \`git commit\`, \`git push\`, \`gcloud run deploy\`, \`vercel --prod\` gibi git yazma / dış ağ / canlı dağıtım komutlarını kendi CLI sandbox'ında çalıştırmaya çalışma (yıkıcı \`rm -rf\` de yapma). Kullanıcı açıkça git/push/deploy isterse, önce yerel kod/doküman düzenlemelerini ve build testini tamamla; ardından yanıtının EN SONUNA aşağıdaki bloğu ekle ki DevStudio telefon ekranına tek dokunuşluk Onay Kartı çıkarsın ve Mac/PC Runner doğrudan çalıştırsın:\n<<<DEVSTUDIO_APPROVAL>>>\n{"command":"<çalıştırılacak tam kabuk komutu>","description":"<kısa Türkçe açıklama>","riskLevel":"critical"}\n<<<END_DEVSTUDIO_APPROVAL>>>\nYanıtını Türkçe, özlü ve net ver.\n\n`;
 
   const effectivePrompt = `${safetyPrefix}${prompt}`;
   const savedConvId = getSessionConversation(sessionId, engine);

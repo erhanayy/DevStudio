@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   X,
   Copy,
@@ -12,6 +13,11 @@ import {
   Wifi,
   WifiOff,
   ExternalLink,
+  FolderGit2,
+  KeyRound,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +27,8 @@ interface RunnerSetupModalProps {
   runnerToken: string;
   initialOnline?: boolean;
   initialDeviceName?: string;
+  projectCount?: number;
+  hasGeminiKey?: boolean;
   onStatusChange?: (online: boolean, deviceName: string) => void;
 }
 
@@ -30,6 +38,8 @@ export function RunnerSetupModal({
   runnerToken,
   initialOnline = false,
   initialDeviceName = "",
+  projectCount = 0,
+  hasGeminiKey = false,
   onStatusChange,
 }: RunnerSetupModalProps) {
   const [osTab, setOsTab] = useState<"mac" | "windows">("mac");
@@ -192,6 +202,71 @@ export function RunnerSetupModal({
             >
               {isOnline ? "ONLINE" : "OFFLINE"}
             </span>
+          </div>
+
+          {/* 3'lü Canlı Hazırlık Özeti */}
+          <div className="grid grid-cols-3 gap-2 w-full max-w-full">
+            <div
+              className={`p-2.5 rounded-2xl border min-w-0 flex flex-col gap-1 ${
+                isOnline
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-rose-500/10 border-rose-500/25 text-rose-300"
+              }`}
+            >
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+                Runner
+              </span>
+              <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
+                {isOnline ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                )}
+                <span className="truncate">{isOnline ? "Bağlı" : "Bekliyor"}</span>
+              </span>
+            </div>
+
+            <div
+              className={`p-2.5 rounded-2xl border min-w-0 flex flex-col gap-1 ${
+                projectCount > 0
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+              }`}
+            >
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+                Projeler
+              </span>
+              <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
+                {projectCount > 0 ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                )}
+                <span className="truncate">
+                  {projectCount > 0 ? `${projectCount} tanımlı` : "Proje ekle"}
+                </span>
+              </span>
+            </div>
+
+            <div
+              className={`p-2.5 rounded-2xl border min-w-0 flex flex-col gap-1 ${
+                hasGeminiKey
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-slate-950 border-slate-800 text-cyan-300"
+              }`}
+            >
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+                Bulut API
+              </span>
+              <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
+                {hasGeminiKey ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+                )}
+                <span className="truncate">{hasGeminiKey ? "Gemini var" : "Opsiyonel"}</span>
+              </span>
+            </div>
           </div>
 
           {/* İşletim Sistemi Sekmeleri (macOS / Windows) */}
@@ -367,12 +442,104 @@ export function RunnerSetupModal({
             </button>
           </div>
 
-          {/* Proje Dizin Yolu İpucu */}
-          <p className="text-[11px] text-slate-400 leading-relaxed px-1">
-            💡 <strong className="text-slate-300">Not:</strong> Windows kullanıyorsanız{" "}
-            <strong className="text-white">Projeler</strong> sayfasında yerel dizin yolunu Windows formatında (örn.{" "}
-            <code className="text-cyan-300">C:\Projects\MyApp</code>) tanımlamanız yeterlidir.
-          </p>
+          {/* ADIM 5: Proje Klasörünü Tanımla (Zorunlu) */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <FolderGit2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-xs font-black text-amber-300 truncate">
+                  ADIM 5 • Proje Klasörünü Tanımla
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                  projectCount > 0
+                    ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/35"
+                    : "bg-amber-500/15 text-amber-300 border border-amber-500/35"
+                }`}
+              >
+                {projectCount > 0 ? `✅ ${projectCount} Proje` : "ZORUNLU"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Runner bağlandıktan sonra yapay zekanın hangi klasörde çalışacağını belirtmek için{" "}
+              <strong className="text-white">Projelerim</strong> ekranından yerel dizin yolunu tanımlayın:
+            </p>
+            <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+              <div className="break-all">
+                <span className="text-slate-400 font-semibold">Örnek Yerel Dizin:</span>{" "}
+                <code className="text-cyan-300 font-mono">
+                  {osTab === "mac" ? "/Users/adiniz/Work/Projem" : "C:\\Projects\\Projem"}
+                </code>
+              </div>
+              <p className="text-slate-400">
+                İsteğe bağlı olarak GitHub repo URL&apos;si ve canlıya dağıtım (deploy) komutunu da ekleyebilirsiniz.
+              </p>
+            </div>
+            <Link
+              href="/projects"
+              onClick={onClose}
+              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-200 font-extrabold text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <FolderGit2 className="w-4 h-4 shrink-0" />
+              <span>Projelerim Ekranına Git</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            </Link>
+          </div>
+
+          {/* ADIM 6: Kasa & Entegrasyonlar (Opsiyonel) */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-purple-500/30 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <KeyRound className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <span className="text-xs font-black text-purple-300 truncate">
+                  ADIM 6 • Kasa &amp; Entegrasyonlar
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                  hasGeminiKey
+                    ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/35"
+                    : "bg-purple-500/15 text-purple-300 border border-purple-500/35"
+                }`}
+              >
+                {hasGeminiKey ? "✅ Gemini Tanımlı" : "OPSİYONEL"}
+              </span>
+            </div>
+            <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
+              <p>
+                • <strong className="text-emerald-300">Yerel Ajan için API gerekmez ($0):</strong>{" "}
+                Üstten <strong className="text-white">🖥️ Yerel Ajan</strong> seçiliyse tüm işler bilgisayarınızdaki CLI ile ek maliyetsiz çalışır.
+              </p>
+              <p>
+                • <strong className="text-purple-200">Bulut Yedeği (İsteğe Bağlı):</strong>{" "}
+                Bilgisayarınız kapalıyken de sohbet etmek isterseniz{" "}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-300 hover:underline inline-flex items-center gap-0.5 font-semibold"
+                >
+                  <span>aistudio.google.com</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>{" "}
+                adresinden ücretsiz Gemini API anahtarı alıp Kasa&apos;ya (AES-256 şifreli) kaydedebilirsiniz.
+              </p>
+              <p>
+                • <strong className="text-slate-200">Runner Anahtarı (Token):</strong>{" "}
+                Kişisel anahtarınız otomatik oluşturuldu; başka bir bilgisayara geçerseniz Kasa ekranından yenileyebilirsiniz.
+              </p>
+            </div>
+            <Link
+              href="/settings"
+              onClick={onClose}
+              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/35 text-purple-200 font-extrabold text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <KeyRound className="w-4 h-4 shrink-0" />
+              <span>Kasa &amp; Entegrasyonlara Git</span>
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
