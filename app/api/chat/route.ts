@@ -271,10 +271,10 @@ export async function POST(req: Request) {
       const selectedOrPreferred = model && !model.includes("2.0") ? model : "gemini-3.8-flash";
       const candidateModels = [
         selectedOrPreferred,
+        "gemini-3.1-flash-lite", // 1.8s ultra hızlı ve kararlı kurtarma modeli (mobil bağlantı kopmasını önler)
         "gemini-3.8-flash",
-        "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
       ].filter((val, idx, arr) => arr.indexOf(val) === idx);
 
       const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki, vizyoner ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
@@ -304,7 +304,7 @@ KURALLAR:
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 30000);
+          const timeout = setTimeout(() => controller.abort(), 7000); // 7 sn maks bekleme (mobil fetch kopmasını önler)
 
           const resp = await fetch(url, {
             method: "POST",
@@ -342,9 +342,11 @@ KURALLAR:
               }
               break;
             }
+          } else {
+            console.warn(`[Gemini API] ${m} başarısız (HTTP ${resp.status}), sonraki hızlı modele geçiliyor...`);
           }
-        } catch (e) {
-          // Sonraki modeli dene
+        } catch (e: any) {
+          console.warn(`[Gemini API] ${m} zaman aşımı veya bağlantı hatası:`, e?.message);
         }
       }
     }

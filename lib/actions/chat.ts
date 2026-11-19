@@ -112,10 +112,10 @@ export async function sendMessageAction({
     const selectedOrPreferred = model && !model.includes("2.0") ? model : "gemini-3.8-flash";
     const candidateModels = [
       selectedOrPreferred,
+      "gemini-3.1-flash-lite", // 1.8s ultra hızlı acil kurtarma modeli
       "gemini-3.8-flash",
-      "gemini-3.5-flash",
       "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash",
     ].filter((val, idx, arr) => arr.indexOf(val) === idx);
 
     const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
@@ -139,7 +139,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 35000);
+        const timeout = setTimeout(() => controller.abort(), 7000); // 7 sn maks bekleme
 
         const resp = await fetch(url, {
           method: "POST",
@@ -178,9 +178,11 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
             }
             break; // Başarılı, döngüden çık
           }
+        } else {
+          console.warn(`[Gemini Action] ${m} başarısız (HTTP ${resp.status}), sonraki hızlı modele geçiliyor...`);
         }
-      } catch (err) {
-        // Sonraki modeli dene
+      } catch (err: any) {
+        console.warn(`[Gemini Action] ${m} zaman aşımı / hata:`, err?.message);
       }
     }
   }

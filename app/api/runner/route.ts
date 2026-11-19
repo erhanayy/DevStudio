@@ -192,16 +192,16 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
 
             const candidateModels = [
               "gemini-3.8-flash",
-              "gemini-3.5-flash",
+              "gemini-3.1-flash-lite", // 1.8s ultra hızlı acil kurtarma modeli
               "gemini-3.5-flash-lite",
-              "gemini-3.1-flash-lite",
+              "gemini-3.5-flash",
             ];
 
             for (const m of candidateModels) {
               try {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 35000);
+                const timeout = setTimeout(() => controller.abort(), 8000); // 8 sn maks bekleme
 
                 const resp = await fetch(url, {
                   method: "POST",
@@ -233,9 +233,11 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
                     }
                     break;
                   }
+                } else {
+                  console.warn(`[Runner AI] ${m} başarısız (HTTP ${resp.status}), sonraki modele geçiliyor...`);
                 }
-              } catch (err) {
-                console.error("Runner AI call error:", err);
+              } catch (err: any) {
+                console.warn(`[Runner AI] ${m} çağrısı zaman aşımı / hata:`, err?.message);
               }
             }
           }

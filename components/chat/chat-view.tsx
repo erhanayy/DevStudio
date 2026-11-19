@@ -527,16 +527,16 @@ export function ChatView({
                 className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1 w-full truncate"
               >
                 <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
-                  🌟 3.8 Flash (Önerilen)
-                </option>
-                <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
-                  ⚡ 3.5 Flash Lite
-                </option>
-                <option value="gemini-3.5-flash" className="bg-slate-900 text-white">
-                  🚀 3.5 Flash
+                  🌟 3.8 Flash (Gelişmiş AI)
                 </option>
                 <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
-                  🧠 3.1 Flash Lite
+                  ⚡ 3.1 Flash Lite (Hızlı - 1.8s)
+                </option>
+                <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
+                  🚀 3.5 Flash Lite
+                </option>
+                <option value="gemini-3.5-flash" className="bg-slate-900 text-white">
+                  🧠 3.5 Flash
                 </option>
               </select>
             </div>
