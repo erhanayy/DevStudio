@@ -4,6 +4,7 @@ Bu dokümanda DevStudio projesinin Git/GitHub gönderim tarihçesi tutulacaktır
 
 | Tarih | Commit Özeti | Dal (Branch) | Onaylayan | Notlar |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-19 | `fix(mobile): optimize cockpit bar, prevent menu icon overlap, and enforce zero-horizontal-scroll` (`b4368f1`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Sol menü butonunun ezilmesi engellendi, model seçici sadeleştirildi ve sıfır yatay kaydırma garantisi sağlandı. |
 | 2026-11-18 | `fix(prompt): add document append safeguard to prevent truncating Analysis.md and docs` (`abcc42b`) | `main` | Erhan Ayyıldız | Asistanın Analysis.md ve dokümanların üzerine yazmasını engelleyen Kural 4 entegre edildi. Cloud Run revizyonu: devstudio-00013-ljc. |
 | 2026-11-18 | `docs(agents): add multi-project documentation isolation rule` (`80b8e1b`) | `main` | Erhan Ayyıldız | Çoklu proje dokümantasyon izolasyon kuralı eklendi. |
 | 2026-11-18 | `docs: import architectural analysis sections 8-14 and complete deployment log from session` (`33c5da5`) | `main` | Erhan Ayyıldız | Kullanıcının onayıyla: TatildeBugun kütüğünden DevStudio mimari analizleri (Madde 8-14) ve Cloud Run dağıtım geçmişi DevStudio deposuna aktarıldı. |
