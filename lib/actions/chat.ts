@@ -109,13 +109,13 @@ export async function sendMessageAction({
 
   // 4. Gemini API çağrısı (Varsa dene)
   if (apiKey) {
-    const selectedOrPreferred = model && !model.includes("2.0") ? model : "gemini-3.8-flash";
+    const selectedOrPreferred = model || "gemini-3-flash-preview";
     const candidateModels = [
       selectedOrPreferred,
-      "gemini-3.1-flash-lite", // 1.8s ultra hızlı acil kurtarma modeli
+      "gemini-3-flash-preview", // Google AI Studio'da 5s sürede 200 OK veren sağlam model
+      "gemini-flash-lite-latest", // 1.5s sürede 200 OK dönen ultra hızlı kurtarma modeli
       "gemini-3.8-flash",
       "gemini-3.5-flash-lite",
-      "gemini-3.5-flash",
     ].filter((val, idx, arr) => arr.indexOf(val) === idx);
 
     const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
@@ -139,7 +139,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 7000); // 7 sn maks bekleme
+        const timeout = setTimeout(() => controller.abort(), 12000); // 12 sn bekleme
 
         const resp = await fetch(url, {
           method: "POST",
@@ -179,7 +179,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
             break; // Başarılı, döngüden çık
           }
         } else {
-          console.warn(`[Gemini Action] ${m} başarısız (HTTP ${resp.status}), sonraki hızlı modele geçiliyor...`);
+          console.warn(`[Gemini Action] ${m} başarısız (HTTP ${resp.status}), sonraki modele geçiliyor...`);
         }
       } catch (err: any) {
         console.warn(`[Gemini Action] ${m} zaman aşımı / hata:`, err?.message);
@@ -207,7 +207,7 @@ Eğer sadece soru soruyorsa, dertleşiyorsa veya fikir danışıyorsa komut üre
       riskLevel = "critical";
       assistantReply = `🚀 **${projectName}** projesini canlı ortama dağıtmak için onayınız bekleniyor:`;
     } else {
-      assistantReply = `Harika bir konu Erhan! **${projectName}** projesi için aklındaki bu fikri birlikte adım adım hayata geçirelim: *"${content}"*\n\nSence önce mimari ve tasarımı mı konuşalım, yoksa doğrudan kod tarafına mı geçelim? Ne düşünüyorsun?`;
+      assistantReply = `⚡ **DevStudio:** Google AI Studio sunucularında anlık aşırı yoğunluk yaşandı ve modeller zaman aşımına uğradı.\n\nLütfen üst menüden **🚀 3-Flash (Hızlı & Kararlı)** modelini seçerek tekrar dener misiniz?`;
     }
   }
 

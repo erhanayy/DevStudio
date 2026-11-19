@@ -268,13 +268,13 @@ export async function POST(req: Request) {
     let riskLevel: "low" | "medium" | "high" | "critical" = "medium";
 
     if (apiKey) {
-      const selectedOrPreferred = model && !model.includes("2.0") ? model : "gemini-3.8-flash";
+      const selectedOrPreferred = model || "gemini-3-flash-preview";
       const candidateModels = [
         selectedOrPreferred,
-        "gemini-3.1-flash-lite", // 1.8s ultra hızlı ve kararlı kurtarma modeli (mobil bağlantı kopmasını önler)
+        "gemini-3-flash-preview", // Google AI Studio'da 5s sürede 200 OK veren sağlam ve kararlı model
+        "gemini-flash-lite-latest", // 1.5s sürede 200 OK dönen ultra hızlı kurtarma modeli
         "gemini-3.8-flash",
         "gemini-3.5-flash-lite",
-        "gemini-3.5-flash",
       ].filter((val, idx, arr) => arr.indexOf(val) === idx);
 
       const systemInstruction = `Sen DevStudio adında, kullanıcının mobil telefonundan veya bilgisayarından doğrudan pair-programming yaptığı samimi, zeki, vizyoner ve kıdemli bir Baş Yapay Zeka Mühendisisin (Staff AI Engineer).
@@ -304,7 +304,7 @@ KURALLAR:
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 7000); // 7 sn maks bekleme (mobil fetch kopmasını önler)
+          const timeout = setTimeout(() => controller.abort(), 12000); // 12 sn dengeli bekleme süresi
 
           const resp = await fetch(url, {
             method: "POST",
@@ -343,7 +343,7 @@ KURALLAR:
               break;
             }
           } else {
-            console.warn(`[Gemini API] ${m} başarısız (HTTP ${resp.status}), sonraki hızlı modele geçiliyor...`);
+            console.warn(`[Gemini API] ${m} başarısız (HTTP ${resp.status}), sonraki modele geçiliyor...`);
           }
         } catch (e: any) {
           console.warn(`[Gemini API] ${m} zaman aşımı veya bağlantı hatası:`, e?.message);
@@ -355,7 +355,7 @@ KURALLAR:
       if (isObservation) {
         assistantReply = `✅ **${projectName}** üzerindeki işlem tamamlandı! Çıktıyı inceledim. Sıradaki geliştirme adımımıza geçebiliriz, ne dersin?`;
       } else {
-        assistantReply = `Harika bir konu Erhan! **${projectName}** projesi için aklındaki bu fikri birlikte adım adım hayata geçirelim: *"${content}"*\n\nSence önce mimariyi mi konuşalım, yoksa doğrudan kod tarafına mı geçelim? Ne düşünüyorsun?`;
+        assistantReply = `⚡ **DevStudio:** Google AI Studio sunucularında anlık aşırı yoğunluk yaşandı ve modeller zaman aşımına uğradı.\n\nLütfen üst menüden **🚀 3-Flash (Hızlı & Kararlı)** modelini seçerek tekrar dener misiniz?`;
       }
     }
 

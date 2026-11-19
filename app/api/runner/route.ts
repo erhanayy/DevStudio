@@ -191,17 +191,17 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
             const obsPrompt = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n[MAC RUNNER TAMAMLANDI]:\nÇalıştırılan Komut: "${appr.command}"\nÇıkış Kodu: ${finalExitCode}\nTerminal Çıktısı:\n\`\`\`\n${cleanOutput || "(Çıktı boş)"}\n\`\`\`\n\nBu çıktıyı incele; kullanıcıya ne gördüğünü açıkla, işlemin bittiğini teyit et ve sıradaki adımı öner.`;
 
             const candidateModels = [
+              "gemini-3-flash-preview", // 200 OK veren ve hızlı çalışan model
+              "gemini-flash-lite-latest",
               "gemini-3.8-flash",
-              "gemini-3.1-flash-lite", // 1.8s ultra hızlı acil kurtarma modeli
               "gemini-3.5-flash-lite",
-              "gemini-3.5-flash",
             ];
 
             for (const m of candidateModels) {
               try {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 8000); // 8 sn maks bekleme
+                const timeout = setTimeout(() => controller.abort(), 12000); // 12 sn bekleme
 
                 const resp = await fetch(url, {
                   method: "POST",
