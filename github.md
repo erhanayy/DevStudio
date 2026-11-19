@@ -4,6 +4,7 @@ Bu dokümanda DevStudio projesinin Git/GitHub gönderim tarihçesi tutulacaktır
 
 | Tarih | Commit Özeti | Dal (Branch) | Onaylayan | Notlar |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-19 | `feat(chat): dynamic approval card status headers and one-tap copy button for AI/runner messages` (`2353870`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Madde 19 (`ApprovalCard` dinamik durum başlığı, ikon ve kenarlık renkleri) ve Madde 20 (AI/Runner mesajları için mobil-first 44px Kopyala butonu) canlıya (`devstudio-00025-cfj`) alındı. |
 | 2026-11-19 | `fix(ai): integrate gemini-3-flash-preview, extend timeout to 12s, remove deceptive fallback loop` (`304b777`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: gemini-3-flash-preview (5s, kararlı) öncelikli model yapıldı, zaman aşımı 12s'ye dengelendi ve yanıltıcı acil durum şablonu düzeltildi. |
 | 2026-11-19 | `fix(ai): add fast fallback, reduce model timeout to 7s to prevent mobile connection drop` (`f0565f6`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Model deneme süresi 7s'ye düşürüldü, gemini-3.1-flash-lite (1.8s) acil kurtarma modeli olarak 2. sıraya yerleştirildi, mobil bağlantı kopması önlendi. |
 | 2026-11-19 | `feat(ai): integrate gemini-3.8-flash as primary model with resilient multi-tier fallback` (`5ea94d4`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Gemini 3.8 Flash amiral gemisi model entegre edildi, 3.8 engeli kaldırıldı, 3.5/3.1 dinamik yedekleme zinciri ve arayüz seçicisi eklendi. |
