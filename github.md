@@ -4,6 +4,7 @@ Bu dokümanda DevStudio projesinin Git/GitHub gönderim tarihçesi tutulacaktır
 
 | Tarih | Commit Özeti | Dal (Branch) | Onaylayan | Notlar |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-19 | `feat(runner): add cross-platform Mac/Windows local CLI agent bridge and setup guide modal` (`02c5284`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Madde 22 (Mac + Windows Yerel CLI Ajan Köprüsü, `agy`/`claude`/`gemini` desteği, Plan/Geliştir modları, 7/24 uyku korumalı scriptler, `/api/runner/download` ve adım adım Kurulum Rehberi modalı) canlıya (`devstudio-00026-s9d`) alındı. |
 | 2026-11-19 | **🏷️ Tag / Label:** `pre-local-cli-v2.3.0` (`b29f5fd`) | `main` (Tag) | Erhan Ayyıldız | Madde 22 (Mac + Windows Çapraz Platform Yerel CLI Runner & Kurulum Rehberi) geliştirmesi öncesi güvenli geri dönüş etiketi. |
 | 2026-11-19 | **🏷️ Tag / Label:** `v2.3.0-stable` (`b53d9f7`) | `main` (Tag) | Erhan Ayyıldız | Ürünleştirme fazına geçmeden önce çalışan son kararlı sürüm (Cloud Run `devstudio-00025-cfj`) güvenli geri dönüş noktası olarak etiketlendi. |
 | 2026-11-19 | `feat(chat): dynamic approval card status headers and one-tap copy button for AI/runner messages` (`2353870`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Madde 19 (`ApprovalCard` dinamik durum başlığı, ikon ve kenarlık renkleri) ve Madde 20 (AI/Runner mesajları için mobil-first 44px Kopyala butonu) canlıya (`devstudio-00025-cfj`) alındı. |
