@@ -575,7 +575,61 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 4. Derleme:
    - `npm run build` ile 0 hata (Turbopack & TypeScript) teyit edildi.
 
+---
 
+## 19. Onay Kartı (ApprovalCard) Dinamik Durum Başlığı ve Renk Mimarisi İyileştirmesi
 
+### 19.1. Kullanıcı Geri Bildirimi & Başarı
+- **Kullanıcı:** *"sonunda bir işi onunla başardım yalnız şöyle bir sıkıntı var. Son işlemi bitirdiği tüm adımlardan sonra ekteki gibi işlem tamamlandı diye bir adım çıkaracağına Onay Bekliyor başlığı atıyor ve altta işlem tamamlandı şeklinde gösteriyor. Eğer işlemin başarı ile tamamlandığı bilgisi geliyorsa yukarıda Onay Bekliyor dememeli. Onun yerine İşlem tamamlandı demeli."*
 
+### 19.2. Kök Neden Analizi (Root Cause Analysis - RCA)
+1. **Statik Başlık ve İkon:**
+   - [components/chat/approval-card.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/approval-card.tsx) bileşeninde komut yürütülüp başarıyla bittiğinde alt kısımdaki ilerleme çubuğu dinamik olarak `%100 ✅ Komut Başarıyla Tamamlandı` durumuna geçmektedir.
+   - Ancak kartın en üst başlığı (`<h4>İşlem Onayı Gerekiyor</h4>`), solundaki uyarı ikonu (`ShieldAlert`) ve kartın dış kenarlığı (`border-amber-500/40`) statik olarak sabitlenmiştir.
+   - Bu durum, kullanıcı mobilden baktığında işlem bitmiş olsa dahi kartın tepesinde sarı uyarı kalkanı ve "İşlem Onayı Gerekiyor" yazısı görmesine, dolayısıyla kafa karışıklığına sebep olmaktadır.
+
+### 19.3. Mimari ve Arayüz Tasarımı
+- `ApprovalCard` bileşeni tam reaktif duruma geçirilecek:
+  1. **Tamamlandığında (`completed`):**
+     - Dış Kenarlık: `border-emerald-500/50 shadow-emerald-950/20`
+     - İkon: `CheckCircle2` (Yeşil kutu, `text-emerald-400 bg-emerald-500/15`)
+     - Başlık: `İşlem Tamamlandı` (`text-emerald-300 font-extrabold`)
+     - Alt Metin: `description` veya `Komut başarıyla yürütüldü`
+  2. **Yürütülürken (`approved` / `running`):**
+     - Dış Kenarlık: `border-cyan-500/40`
+     - İkon: `Loader2` (Cyan kutu, dönen animasyon)
+     - Başlık: `İşlem Yürütülüyor...` (`text-cyan-300`)
+  3. **Hata Aldığında (`failed`):**
+     - Dış Kenarlık: `border-rose-500/40`
+     - İkon: `AlertTriangle` (Kırmızı/gül kutu)
+     - Başlık: `İşlem Tamamlandı (Hata)` (`text-rose-300`)
+  4. **Beklerken (`pending`):**
+     - Dış Kenarlık: `border-amber-500/40`
+     - İkon: `ShieldAlert` (Sarı uyarı kalkanı)
+     - Başlık: `İşlem Onayı Gerekiyor` (`text-white`)
+
+### 19.4. Uygulama ve Doğrulama
+1. [components/chat/approval-card.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/approval-card.tsx):
+   - Tüm durumlar (`pending`, `approved`, `running`, `completed`, `failed`, `rejected`) için dinamik `statusConfig` tanımlanarak dış kenarlık, ikon kutusu (`border` sınıfı dahil), ikon, başlık ve alt açıklama reaktif hale getirildi.
+   - Terminal durumlarında (`completed`, `failed`, `rejected`) `critical` risk rozetinin gereksiz `animate-pulse` animasyonu durduruldu.
+2. **Derleme Doğrulaması:** `npm run build` (Next.js 16 Turbopack + TypeScript) **0 hata** ile geçti.
+
+---
+
+## 20. AI ve Runner Mesajları İçin Tek Dokunuşla Kopyalama Butonu
+
+### 20.1. Kullanıcı Talebi
+- **Kullanıcı:** *"Bir de AI'ın cevaplarını kopyalayabileceğim bir buton koyar mısın? Alıp sana sormak için kolaylık olsun."*
+
+### 20.2. Mimari ve Arayüz Tasarımı (Mobil-First & Kural 8)
+- **Hedef Bileşen:** [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx)
+- **Kapsam:** Tüm AI (`assistant`) yanıt balonlarının ve Mac Runner (`runner`) terminal çıktılarının hemen altında kompakt bir aksiyon satırı eklendi.
+- **Dokunmatik Erişilebilirlik:** Buton `min-h-[44px] min-w-[44px]` dokunma hedefi ve `max-w-full overflow-hidden` (sıfır yatay kaydırma) kurallarına tam uyumlu tasarlandı.
+- **Geri Bildirim:** Kopyalama anında 2 saniye boyunca yeşil `Check` ikonu + **"Kopyalandı"** durumuna geçer ve `sonner` toast bildirimi gösterir.
+- **Tarayıcı Uyumluluğu:** `navigator.clipboard.writeText` birincil yöntem; kısıtlı mobil/webview ortamları için geçici `textarea` + `document.execCommand("copy")` yedek mekanizması eklendi.
+
+### 20.3. Uygulama ve Doğrulama
+1. [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx) içerisine `handleCopyMessage`, `copiedMsgId` durum yönetimi ve her AI/Runner balonu altına **Kopyala / Kopyalandı** butonu entegre edildi.
+2. **Derleme Doğrulaması:** `npm run build` (Next.js 16 Turbopack + TypeScript) **0 hata** ile tamamlandı (`Compiled successfully in 3.0s`, `Finished TypeScript in 2.5s`).
+3. **GitHub & Dağıtım Durumu (Kural 2 & 3):** Değişiklikler yalnızca yerelde hazırlandı; kullanıcı onayı olmadan push veya Cloud Run deploy yapılmadı.
 

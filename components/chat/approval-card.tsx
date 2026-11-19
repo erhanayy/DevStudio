@@ -79,26 +79,81 @@ export function ApprovalCard({
     }
   };
 
+  const isTerminalState = status === "completed" || status === "failed" || status === "rejected";
+
   const riskColors = {
     low: "text-blue-400 bg-blue-500/10 border-blue-500/30",
     medium: "text-amber-400 bg-amber-500/10 border-amber-500/30",
     high: "text-orange-400 bg-orange-500/10 border-orange-500/30",
-    critical: "text-rose-400 bg-rose-500/10 border-rose-500/30 animate-pulse",
+    critical: `text-rose-400 bg-rose-500/10 border-rose-500/30 ${isTerminalState ? "" : "animate-pulse"}`,
   };
 
+  const statusConfig = {
+    pending: {
+      border: "border-amber-500/40",
+      iconBox: "bg-amber-500/15 border-amber-500/30 text-amber-400",
+      icon: <ShieldAlert className="w-4 h-4" />,
+      title: "İşlem Onayı Gerekiyor",
+      titleColor: "text-white",
+      desc: description,
+    },
+    approved: {
+      border: "border-cyan-500/40 shadow-cyan-950/20",
+      iconBox: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400",
+      icon: <Loader2 className="w-4 h-4 animate-spin" />,
+      title: "İşlem Yürütülüyor...",
+      titleColor: "text-cyan-300",
+      desc: "Mac Runner terminal üzerinde komutu icra ediyor...",
+    },
+    running: {
+      border: "border-cyan-500/40 shadow-cyan-950/20",
+      iconBox: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400",
+      icon: <Loader2 className="w-4 h-4 animate-spin" />,
+      title: "İşlem Yürütülüyor...",
+      titleColor: "text-cyan-300",
+      desc: "Mac Runner terminal üzerinde komutu icra ediyor...",
+    },
+    completed: {
+      border: "border-emerald-500/50 shadow-emerald-950/20",
+      iconBox: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      title: "İşlem Tamamlandı",
+      titleColor: "text-emerald-300",
+      desc: "Komut başarıyla çalıştırıldı ve çıktısı işlendi",
+    },
+    failed: {
+      border: "border-rose-500/40 shadow-rose-950/20",
+      iconBox: "bg-rose-500/15 border-rose-500/30 text-rose-400",
+      icon: <AlertTriangle className="w-4 h-4" />,
+      title: "İşlem Tamamlandı (Hata)",
+      titleColor: "text-rose-300",
+      desc: "Komut çalıştırıldı ancak hata döndü",
+    },
+    rejected: {
+      border: "border-slate-800",
+      iconBox: "bg-slate-800 border-slate-700 text-slate-400",
+      icon: <XCircle className="w-4 h-4" />,
+      title: "İşlem Reddedildi",
+      titleColor: "text-slate-400",
+      desc: "Kullanıcı tarafından iptal edildi",
+    },
+  };
+
+  const currentCfg = statusConfig[status] || statusConfig.pending;
+
   return (
-    <div className="rounded-3xl bg-slate-900 border-2 border-amber-500/40 p-3.5 sm:p-5 shadow-2xl space-y-3.5 my-3 animate-in fade-in zoom-in-95 duration-200 w-full max-w-full overflow-hidden">
+    <div className={`rounded-3xl bg-slate-900 border-2 ${currentCfg.border} p-3.5 sm:p-5 shadow-2xl space-y-3.5 my-3 animate-in fade-in zoom-in-95 duration-200 w-full max-w-full overflow-hidden`}>
       {/* Üst Başlık & Risk Seviyesi */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-            <ShieldAlert className="w-4 h-4" />
+          <div className={`w-8 h-8 rounded-xl border ${currentCfg.iconBox} flex items-center justify-center shrink-0`}>
+            {currentCfg.icon}
           </div>
           <div className="min-w-0 truncate">
-            <h4 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
-              <span>İşlem Onayı Gerekiyor</span>
+            <h4 className={`text-xs sm:text-sm font-extrabold ${currentCfg.titleColor} flex items-center gap-1.5 truncate`}>
+              <span>{currentCfg.title}</span>
             </h4>
-            <p className="text-[11px] text-slate-400 truncate">{description}</p>
+            <p className="text-[11px] text-slate-400 truncate">{currentCfg.desc}</p>
           </div>
         </div>
 

@@ -18,6 +18,8 @@ import {
   Bot,
   User,
   Sparkles,
+  Copy,
+  Check,
 } from "lucide-react";
 import { ApprovalCard } from "./approval-card";
 import { useTranslation } from "@/lib/i18n/context";
@@ -81,6 +83,8 @@ export function ChatView({
   const [input, setInput] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -355,6 +359,43 @@ export function ChatView({
     }
   };
 
+  const handleCopyMessage = async (msgId: string, content: string, isRunner: boolean) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = content;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (!copied) {
+          throw new Error("Kopyalama desteklenmiyor");
+        }
+      }
+
+      setCopiedMsgId(msgId);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopiedMsgId((prev) => (prev === msgId ? null : prev));
+      }, 2000);
+      toast.success(isRunner ? "Terminal çıktısı kopyalandı!" : "AI yanıtı kopyalandı!");
+    } catch {
+      toast.error("Kopyalama başarısız oldu");
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
+
   const currentProject = projects.find((p) => p.id === selectedProjectId);
 
   return (
@@ -580,6 +621,33 @@ export function ChatView({
                   >
                     {msg.content}
                   </div>
+
+                  {!isUser && (
+                    <div className="flex items-center gap-2 max-w-full overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessage(msg.id, msg.content, isRunner)}
+                        aria-label={isRunner ? "Terminal çıktısını kopyala" : "AI yanıtını kopyala"}
+                        className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+                          copiedMsgId === msg.id
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                            : "bg-slate-900/80 border-slate-800/90 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/40 active:scale-95"
+                        }`}
+                      >
+                        {copiedMsgId === msg.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>Kopyalandı</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 shrink-0" />
+                            <span>Kopyala</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {msg.approval && (
                     <ApprovalCard
