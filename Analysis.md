@@ -410,7 +410,51 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
      - Gemini 3.5 Flash Lite terminal çıktısını inceleyip analizi eksiksiz tamamladı.
 2. **GitHub Senkronizasyonu:**
    - Hem `Roadmap.md` commit'i (`ab90c8c`) hem de REST API mimari güncellemesi commit'i (`1f33945`) GitHub `origin main` deposuna başarıyla push edildi.
--e 
 ## Analiz: Arayüze Görsel ve Dosya Ekleme Özelliği (Attachment)
 - **Sorun:** Kullanıcının telefondan veya web arayüzünden ekran görüntüsü/fotoğraf paylaşamaması, görsel hataların iletilmesini zorlaştırıyor.
 - **Çözüm:** Mesaj giriş alanına bir dosya/fotoğraf ekleme (attachment) butonu ve arayüzü entegre edilecek.
+
+---
+
+## 15. Mobil Görünüm Optimizasyonu: Menü İkonu Çakışması ve Sıfır Yatay Kaydırma (Zero-Horizontal-Scroll)
+
+### 15.1. Kullanıcı Geri Bildirimi & Problem Tespiti
+- **Kullanıcı:** *"Ekte mobil görüntü var. Göreceğin gibi 2 sorun mevcut. Sol menü ikonu GEmini yazısı altında kalıyor. Bir de ekrana tam oturması ve sağa scroll çıkmamaması lazım. Mobil versiyon için bu düzenlemeyi yapabilir misin?"*
+- **Kullanıcı Ekran Görüntüsü Analizi:**
+  1. **Sol Menü İkonunun Ezilmesi & Gemini Altında Kalması:**
+     - `chat-view.tsx` içerisindeki üst kokpit barında (`flex items-center justify-between gap-3`), model seçicinin genişliği (`⚡ Gemini 3.5 Flash Lite (Hızlı & Kesintisiz)`) etiketi çok uzun (~320px) olduğu ve kısıtlanmadığı için 360px-390px mobil ekranda tüm yatay alanı kaplamakta; sol taraftaki menü butonunu (`shrink-0` olmadığı için) ezerek model seçici kutusunun sol kenarının altında kalmasına neden olmaktadır.
+  2. **Yatay Kaydırma Çubuğu (Horizontal Scroll / Sağa Scroll):**
+     - Mesaj listesi kapsayıcısında (`scrollContainerRef`) yalnızca `overflow-y-auto` bulunmakta, `overflow-x-hidden` yer almamaktadır.
+     - Mesaj balonlarında `break-words` ve `[overflow-wrap:anywhere]` eksikliği nedeniyle uzun kelimeler (dosya yolları örn. `components/chat/chat-view.tsx`, kod parçaları ve runner logları) yatayda taşmakta ve arayüzün altına gri bir yatay kaydırma çubuğu (`overflow-x`) düşürmektedir.
+     - Üst kokpit barı içeriğinin genişliği de ekran genişliğini aştığı için tüm sayfa yatayda genişlemektedir.
+
+### 15.2. Tasarlanan Mimari ve Arayüz Çözümleri
+
+#### 1. Üst Kokpit Barı ve Menü İkonu Düzenlemesi (`components/chat/chat-view.tsx`):
+- **Menü Butonu Koruması:** Sol menü açma/kapama butonuna `shrink-0 min-w-[40px] min-h-[40px]` (dokunmatik hedef güvencesi) ve `z-10` atanarak butonun asla ezilmemesi ve her zaman tıklanabilir olması sağlanacak.
+- **Duyarlı Model Seçici (Responsive Model Selector):**
+  - Mobilde model seçiciye `max-w-[145px] sm:max-w-xs shrink-0 min-w-0` kısıtı getirilecek.
+  - Model seçici metinleri mobilde kısa ve temiz gösterilecek (örn. `⚡ Gemini 3.5 Lite` veya `Gemini 3.5 Lite`), masaüstünde tam açıklama korunacak.
+  - Proje adı ve etiketi `min-w-0 flex-1 truncate` ile esnek alanda taşmadan gösterilecek.
+- **Kokpit Barı Kapsayıcısı:** `w-full max-w-full overflow-hidden` ile sınırlandırılacak.
+
+#### 2. Sıfır Yatay Kaydırma (Zero-Horizontal-Scroll) Güvencesi:
+- **Mesaj Akışı Alanı:**
+  - `overflow-y-auto overflow-x-hidden max-w-full min-w-0 w-full` sınıfları uygulanacak.
+- **Mesaj Balonları:**
+  - `break-words [overflow-wrap:anywhere] break-all max-w-full overflow-hidden` uygulanarak hiçbir dosya yolu, kod dizesi veya uzun cümlenin kutuyu taşırıp sağa kaydırma yaratması engellenecek.
+- **Mesaj Giriş Formu (Input):**
+  - `<input>` elemanına `min-w-0 w-full` verilerek flex taşması önlenecek.
+- **AppHeader & Alt Sekmeler:**
+  - `w-full max-w-full overflow-x-hidden` ile dış taşmalar garanti altına alınacak.
+
+### 15.3. Uygulama ve Doğrulama
+1. **Kod Geliştirmesi:**
+   - `components/chat/chat-view.tsx`: Üst kokpit barına `max-w-full overflow-hidden`, sol menü butonuna `shrink-0 min-w-[38px] min-h-[38px] z-10`, model seçiciye `max-w-[155px] xs:max-w-[185px] sm:max-w-xs shrink-0 min-w-0`, mesaj akışına `overflow-y-auto overflow-x-hidden w-full max-w-full`, mesaj balonlarına `break-words [overflow-wrap:anywhere] break-all max-w-full overflow-hidden` ve mesaj girişine `min-w-0 w-full` uygulandı. Mobil yan çekmece için karartma perdesi (`backdrop-blur-xs z-20`) eklendi.
+   - `components/chat/approval-card.tsx`: Kapsayıcıya ve komut kod bloğuna `w-full max-w-full overflow-hidden break-all min-w-0` eklendi.
+   - `components/navigation/app-header.tsx`: Header ve mobil alt sekmelere `w-full max-w-full overflow-x-hidden` eklendi.
+2. **Derleme Doğrulaması (Turbopack):**
+   - `npm run build` komutu çalıştırıldı; TypeScript ve statik/dinamik sayfa derlemesi **0 hata** ile başarıyla tamamlandı (`exited with code 0`).
+3. **Sıradaki Adım:**
+   - Kullanıcı onayıyla Git commit/push ve Cloud Run dağıtımı (`gcloud run deploy devstudio`).
+

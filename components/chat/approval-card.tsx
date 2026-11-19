@@ -87,32 +87,32 @@ export function ApprovalCard({
   };
 
   return (
-    <div className="rounded-3xl bg-slate-900 border-2 border-amber-500/40 p-4 sm:p-5 shadow-2xl space-y-3.5 my-3 animate-in fade-in zoom-in-95 duration-200">
+    <div className="rounded-3xl bg-slate-900 border-2 border-amber-500/40 p-3.5 sm:p-5 shadow-2xl space-y-3.5 my-3 animate-in fade-in zoom-in-95 duration-200 w-full max-w-full overflow-hidden">
       {/* Üst Başlık & Risk Seviyesi */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
             <ShieldAlert className="w-4 h-4" />
           </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
+          <div className="min-w-0 truncate">
+            <h4 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
               <span>İşlem Onayı Gerekiyor</span>
             </h4>
-            <p className="text-[11px] text-slate-400">{description}</p>
+            <p className="text-[11px] text-slate-400 truncate">{description}</p>
           </div>
         </div>
 
         <span
-          className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${riskColors[riskLevel]}`}
+          className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 ${riskColors[riskLevel]}`}
         >
           {riskLevel}
         </span>
       </div>
 
       {/* Komut Kutusu */}
-      <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs text-amber-300 break-all select-all flex items-start gap-2">
+      <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs text-amber-300 break-all select-all flex items-start gap-2 max-w-full overflow-hidden">
         <Terminal className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-        <code>{command}</code>
+        <code className="break-all min-w-0 flex-1">{command}</code>
       </div>
 
       {/* Aksiyon Butonları & Dolan Canlı İlerleme Çubuğu */}

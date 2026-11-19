@@ -359,6 +359,14 @@ export function ChatView({
 
   return (
     <div className="flex-1 flex overflow-hidden min-h-0 relative w-full h-full">
+      {/* Mobil Karartma Perdesi (Backdrop) */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-20 md:hidden cursor-pointer"
+        />
+      )}
+
       {/* SOL KENAR ÇUBUĞU (Projeler & Sohbet Geçmişi) */}
       <div
         className={`${
@@ -480,24 +488,26 @@ export function ChatView({
       {/* SAĞ ANA SOHBET ALANI */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-950 min-h-0">
         {/* Üst Kokpit Barı */}
-        <div className="shrink-0 p-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Sidebar Aç / Kapa Butonu */}
+        <div className="shrink-0 px-3 py-2 sm:p-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md flex items-center justify-between gap-2 sm:gap-3 w-full max-w-full overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {/* Sidebar Aç / Kapa Butonu (Kural 8: Dokunmatik Hedef & Asla Ezilmeyen Z-Index) */}
             <button
+              type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center transition-all cursor-pointer z-10"
               title="Projeler Menüsü"
+              aria-label="Projeler Menüsü"
             >
-              {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+              {sidebarOpen ? <PanelLeftClose className="w-4 h-4 text-cyan-400" /> : <PanelLeftOpen className="w-4 h-4 text-slate-300" />}
             </button>
 
             {/* Aktif Proje Künyesi */}
-            <div className="truncate">
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 truncate">
+              <div className="flex items-center gap-1.5 min-w-0 truncate">
                 <span className="text-xs font-black text-white truncate">
                   {currentProject?.name}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800 text-cyan-300 font-mono">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800 text-cyan-300 font-mono shrink-0 hidden xs:inline-block">
                   {currentProject?.slug}
                 </span>
               </div>
@@ -508,30 +518,30 @@ export function ChatView({
           </div>
 
           {/* Model Seçici */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs">
-              <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+          <div className="flex items-center gap-1.5 shrink-0 max-w-[155px] xs:max-w-[185px] sm:max-w-xs min-w-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs w-full min-w-0">
+              <Cpu className="w-3.5 h-3.5 text-purple-400 shrink-0" />
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1 w-full truncate"
               >
                 <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
-                  ⚡ Gemini 3.5 Flash Lite (Hızlı & Kesintisiz)
+                  ⚡ 3.5 Flash Lite
                 </option>
                 <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
-                  🧠 Gemini 3.1 Flash Lite
+                  🧠 3.1 Flash Lite
                 </option>
                 <option value="gemini-3.5-flash" className="bg-slate-900 text-white">
-                  🚀 Gemini 3.5 Flash
+                  🚀 3.5 Flash
                 </option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Mesaj Akışı */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-4 overscroll-contain">
+        {/* Mesaj Akışı (Sıfır Yatay Kaydırma) */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-3 sm:p-6 space-y-4 overscroll-contain w-full max-w-full">
           {messages.map((msg) => {
             const isUser = msg.role === "user";
             const isRunner = msg.role === "runner";
@@ -539,7 +549,7 @@ export function ChatView({
             return (
               <div
                 key={msg.id}
-                className={`flex gap-3 max-w-3xl ${
+                className={`flex gap-2.5 sm:gap-3 max-w-3xl w-full min-w-0 ${
                   isUser ? "ml-auto flex-row-reverse" : "mr-auto"
                 }`}
               >
@@ -555,13 +565,13 @@ export function ChatView({
                   {isUser ? <User className="w-4 h-4" /> : isRunner ? <Terminal className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                 </div>
 
-                <div className="space-y-2 w-full max-w-2xl">
+                <div className="space-y-2 w-full max-w-2xl min-w-0">
                   <div
-                    className={`p-4 rounded-3xl text-sm leading-relaxed shadow-lg ${
+                    className={`p-3.5 sm:p-4 rounded-3xl text-sm leading-relaxed shadow-lg break-words [overflow-wrap:anywhere] max-w-full overflow-hidden ${
                       isUser
                         ? "bg-cyan-600 text-white rounded-tr-sm"
                         : isRunner
-                        ? "bg-slate-900/95 border border-emerald-500/30 text-emerald-300 font-mono text-xs rounded-tl-sm whitespace-pre-wrap"
+                        ? "bg-slate-900/95 border border-emerald-500/30 text-emerald-300 font-mono text-xs rounded-tl-sm whitespace-pre-wrap break-all"
                         : "bg-slate-900/90 border border-slate-800 text-slate-200 rounded-tl-sm whitespace-pre-wrap"
                     }`}
                   >
@@ -585,9 +595,9 @@ export function ChatView({
           })}
 
           {isSending && (
-            <div className="flex items-center gap-2.5 text-xs text-cyan-400 italic py-2 px-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/30 w-fit">
-              <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-              <span>DevStudio çıktıyı analiz ediyor ve yönlendirme hazırlıyor...</span>
+            <div className="flex items-center gap-2.5 text-xs text-cyan-400 italic py-2 px-3 sm:px-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/30 w-fit max-w-full">
+              <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span className="truncate">DevStudio çıktıyı analiz ediyor...</span>
             </div>
           )}
 
@@ -595,7 +605,7 @@ export function ChatView({
         </div>
 
         {/* Mesaj Giriş Barı (Mobile-First) */}
-        <div className="shrink-0 p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md flex flex-col gap-2">
+        <div className="shrink-0 p-2.5 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md flex flex-col gap-2 w-full max-w-full overflow-hidden">
           {selectedFile && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-300 w-fit max-w-full truncate">
               <Paperclip className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
@@ -603,18 +613,18 @@ export function ChatView({
               <button
                 type="button"
                 onClick={() => setSelectedFile(null)}
-                className="p-1 hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1"
+                className="p-1 hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
-          <form onSubmit={handleSend} className="flex items-center gap-2">
+          <form onSubmit={handleSend} className="flex items-center gap-2 w-full min-w-0">
             <input type="file" id="file-attachment" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
             <button
               type="button"
               onClick={() => document.getElementById("file-attachment")?.click()}
-              className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0"
+              className="p-3 sm:p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0 min-w-[42px] min-h-[42px] flex items-center justify-center"
               title="Dosya veya Fotoğraf Ekle"
             >
               <Paperclip className="w-4 h-4" />
@@ -625,12 +635,12 @@ export function ChatView({
               onChange={(e) => setInput(e.target.value)}
               placeholder={`${currentProject?.name} için serbestçe yaz...`}
               disabled={isSending}
-              className="flex-1 bg-slate-900/90 border border-slate-800 focus:border-cyan-500/80 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
+              className="flex-1 min-w-0 bg-slate-900/90 border border-slate-800 focus:border-cyan-500/80 rounded-2xl px-3.5 sm:px-4 py-3 sm:py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
             />
             <button
               type="submit"
               disabled={isSending || !input.trim()}
-              className="px-5 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shrink-0"
+              className="px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shrink-0 min-w-[42px] min-h-[42px]"
             >
               <Send className="w-4 h-4" />
             </button>

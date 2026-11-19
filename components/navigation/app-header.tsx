@@ -49,8 +49,8 @@ export function AppHeader({ user, isRunnerOnline = false }: AppHeaderProps) {
   ];
 
   return (
-    <header className="shrink-0 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-1">
+    <header className="shrink-0 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 w-full max-w-full overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-1 w-full max-w-full">
         {/* Sol Alan: Logo */}
         <div className="flex items-center gap-1.5 sm:gap-4 min-w-0 shrink">
           <Link href="/chat" className="flex items-center gap-1.5 group shrink-0">
