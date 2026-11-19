@@ -75,7 +75,7 @@ export function ChatView({
 
   const [sessions, setSessions] = useState<ChatSessionItem[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   const [selectedModel, setSelectedModel] = useState<string>("gemini-3-flash-preview");
   const [input, setInput] = useState<string>("");
