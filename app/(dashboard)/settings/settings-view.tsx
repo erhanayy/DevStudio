@@ -40,7 +40,7 @@ export function SettingsView({
   const handleCopy = () => {
     navigator.clipboard.writeText(runnerCommand);
     setCopied(true);
-    toast.success("Runner komutu panoya kopyalandı!");
+    toast.success(t("settings.copiedRunnerToast"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -50,34 +50,34 @@ export function SettingsView({
     try {
       const formData = new FormData(e.currentTarget);
       await saveApiKeysAction(formData);
-      toast.success("API anahtarları şifrelenerek güvenle kaydedildi!");
+      toast.success(t("settings.savedKeysToast"));
     } catch (err: any) {
-      toast.error(err.message || "Kaydetme başarısız");
+      toast.error(err.message || t("settings.saveKeysErrorToast"));
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleRegenerateToken = async () => {
-    if (!confirm("Eşleşme anahtarını yenilemek bilgisayarınızdaki mevcut bağlantıyı keser. Devam edilsin mi?")) return;
+    if (!confirm(t("settings.regenerateConfirm"))) return;
     setIsRegenerating(true);
     try {
       const res = await regenerateRunnerTokenAction();
       setToken(res.token);
-      toast.success("Yeni Runner anahtarı üretildi!");
+      toast.success(t("settings.regeneratedToast"));
     } catch (err: any) {
-      toast.error(err.message || "Yenileme başarısız");
+      toast.error(err.message || t("settings.regenerateErrorToast"));
     } finally {
       setIsRegenerating(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 space-y-6">
+    <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 space-y-6 overflow-y-auto overflow-x-hidden">
       {/* Üst Başlık */}
       <div>
         <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-          <KeyRound className="w-6 h-6 text-purple-400" />
+          <KeyRound className="w-6 h-6 text-purple-400 shrink-0" />
           <span>{t("settings.title")}</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -87,17 +87,17 @@ export function SettingsView({
 
       {/* 1. Masaüstü Runner Eşleşme Kartı */}
       <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
               <Terminal className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold text-white">
                 {t("settings.runnerTitle")}
               </h3>
               <p className="text-xs text-slate-400">
-                Mac veya Windows bilgisayarınızda bir kez çalıştırmanız yeterlidir (Port açma gerekmez).
+                {t("settings.runnerDesc")}
               </p>
             </div>
           </div>
@@ -106,8 +106,8 @@ export function SettingsView({
             type="button"
             disabled={isRegenerating}
             onClick={handleRegenerateToken}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Yeni Token Üret"
+            className="min-w-[44px] min-h-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+            title={t("settings.regenerateTitle")}
           >
             <RefreshCw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
           </button>
@@ -122,7 +122,7 @@ export function SettingsView({
             className="min-h-[44px] px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition-all shrink-0 cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? "Kopyalandı!" : t("settings.copyToken")}</span>
+            <span>{copied ? t("settings.copiedToken") : t("settings.copyToken")}</span>
           </button>
         </div>
 
@@ -136,8 +136,8 @@ export function SettingsView({
             />
             <span className="font-bold text-slate-300">
               {runnerOnline
-                ? `Online (${deviceName || "Bilgisayar Bağlı"})`
-                : "Runner Çevrimdışı"}
+                ? `${t("settings.onlineLabel")} (${deviceName || t("settings.connectedDeviceFallback")})`
+                : t("settings.offlineLabel")}
             </span>
           </div>
 
@@ -147,7 +147,7 @@ export function SettingsView({
             className="min-h-[44px] px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 font-extrabold text-xs inline-flex items-center gap-2 transition-all cursor-pointer"
           >
             <BookOpen className="w-4 h-4 shrink-0" />
-            <span>macOS & Windows Kurulum Rehberi</span>
+            <span>{t("settings.setupGuideBtn")}</span>
           </button>
         </div>
       </div>
@@ -176,19 +176,23 @@ export function SettingsView({
             <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
               <span>{t("settings.apiVaultTitle")}</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                AES-256 Şifreli Kasa
+                {t("settings.aesBadge")}
               </span>
             </h3>
             <p className="text-xs text-slate-400">
-              API anahtarlarınız veritabanımızda askeri düzeyde şifrelenir; asla düz metin saklanmaz.
+              {t("settings.aesDesc")}
             </p>
           </div>
         </div>
 
         {/* Yerel Ajan Maliyet / Zorunluluk Bilgilendirmesi */}
         <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-200 leading-relaxed">
-          💡 <strong className="text-emerald-300">Yerel Ajan için zorunlu değildir ($0 ek maliyet):</strong>{" "}
-          Bilgisayarınızdaki CLI ajanını (<strong className="text-white">🖥️ Yerel Ajan</strong>) kullanıyorsanız buraya API anahtarı girmenize gerek yoktur. Yalnızca bilgisayarınız kapalıyken <strong className="text-white">Bulut API modelleri</strong> ile sohbet etmek isterseniz ücretsiz Gemini anahtarınızı ekleyebilirsiniz.
+          💡 <strong className="text-emerald-300">{t("settings.localAgentNoticeTitle")}</strong>{" "}
+          {t("settings.localAgentNoticeBodyPrefix")}
+          <strong className="text-white">{t("settings.localAgentNoticeLocal")}</strong>
+          {t("settings.localAgentNoticeMid")}{" "}
+          <strong className="text-white">{t("settings.localAgentNoticeCloud")}</strong>{" "}
+          {t("settings.localAgentNoticeSuffix")}
         </div>
 
         <form onSubmit={handleSaveKeys} className="space-y-4">
@@ -200,7 +204,7 @@ export function SettingsView({
               </label>
               {hasGeminiKey && (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Tanımlı
+                  <ShieldCheck className="w-3.5 h-3.5" /> {t("settings.definedBadge")}
                 </span>
               )}
             </div>
@@ -223,12 +227,12 @@ export function SettingsView({
                   {t("settings.claudeKey")}
                 </label>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  Yakında (Bulut)
+                  {t("settings.comingSoonBadge")}
                 </span>
               </div>
               {hasClaudeKey && (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Tanımlı
+                  <ShieldCheck className="w-3.5 h-3.5" /> {t("settings.definedBadge")}
                 </span>
               )}
             </div>
@@ -239,7 +243,9 @@ export function SettingsView({
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
             />
             <p className="text-[11px] text-slate-400">
-              Not: Claude Code&apos;u bilgisayarınızdan <strong className="text-slate-300">🖥️ Yerel Ajan</strong> olarak kullanıyorsanız buraya API anahtarı girmeniz gerekmez.
+              {t("settings.claudeLocalNotePrefix")}{" "}
+              <strong className="text-slate-300">{t("settings.claudeLocalNoteHighlight")}</strong>{" "}
+              {t("settings.claudeLocalNoteSuffix")}
             </p>
           </div>
 
@@ -251,12 +257,12 @@ export function SettingsView({
                   {t("settings.openaiKey")}
                 </label>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  Yakında (Bulut)
+                  {t("settings.comingSoonBadge")}
                 </span>
               </div>
               {hasOpenaiKey && (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Tanımlı
+                  <ShieldCheck className="w-3.5 h-3.5" /> {t("settings.definedBadge")}
                 </span>
               )}
             </div>
@@ -272,9 +278,9 @@ export function SettingsView({
             <button
               type="submit"
               disabled={isSaving}
-              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
+              className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
             >
-              {isSaving ? "Şifreleniyor..." : t("settings.saveKeys")}
+              {isSaving ? t("settings.savingKeys") : t("settings.saveKeys")}
             </button>
           </div>
         </form>

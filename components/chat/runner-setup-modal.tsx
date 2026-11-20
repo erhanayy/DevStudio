@@ -20,6 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n/context";
 
 interface RunnerSetupModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ export function RunnerSetupModal({
   hasGeminiKey = false,
   onStatusChange,
 }: RunnerSetupModalProps) {
+  const { t } = useTranslation();
   const [osTab, setOsTab] = useState<"mac" | "windows">("mac");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [origin, setOrigin] = useState<string>(
@@ -110,10 +112,10 @@ export function RunnerSetupModal({
         document.body.removeChild(ta);
       }
       setCopiedId(id);
-      toast.success("Komut panoya kopyalandı!");
+      toast.success(t("setup.copiedToast"));
       setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000);
     } catch {
-      toast.error("Kopyalanamadı");
+      toast.error(t("setup.copyErrorToast"));
     }
   };
 
@@ -147,17 +149,17 @@ export function RunnerSetupModal({
             </div>
             <div className="min-w-0">
               <h3 className="text-sm sm:text-base font-black text-white truncate">
-                PC / Mac Runner Kurulum Rehberi
+                {t("setup.title")}
               </h3>
               <p className="text-[11px] text-slate-400 truncate">
-                Port açmadan 1 dakikada bağla • Ek API maliyeti olmadan Yerel CLI çalıştır
+                {t("setup.subtitle")}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Kapat"
+            aria-label={t("setup.close")}
             className="min-w-[44px] min-h-[44px] rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
@@ -183,13 +185,11 @@ export function RunnerSetupModal({
               <div className="min-w-0">
                 <p className="text-xs font-extrabold truncate">
                   {isOnline
-                    ? `Bağlı: ${deviceName || "Bilgisayarınız Online"}`
-                    : "Bilgisayar Bağlantısı Bekleniyor"}
+                    ? `${t("setup.connectedPrefix")} ${deviceName || t("setup.computerOnline")}`
+                    : t("setup.waitingConnection")}
                 </p>
                 <p className="text-[11px] opacity-80 truncate">
-                  {isOnline
-                    ? "Telefondan Yerel Ajan (CLI) veya terminal komutu gönderebilirsiniz."
-                    : "Aşağıdaki 3. adımdaki komutu çalıştırdığınızda burası otomatik yeşile döner."}
+                  {isOnline ? t("setup.onlineDesc") : t("setup.offlineDesc")}
                 </p>
               </div>
             </div>
@@ -214,7 +214,7 @@ export function RunnerSetupModal({
               }`}
             >
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
-                Runner
+                {t("setup.summaryRunner")}
               </span>
               <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
                 {isOnline ? (
@@ -222,7 +222,9 @@ export function RunnerSetupModal({
                 ) : (
                   <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
                 )}
-                <span className="truncate">{isOnline ? "Bağlı" : "Bekliyor"}</span>
+                <span className="truncate">
+                  {isOnline ? t("setup.summaryConnected") : t("setup.summaryWaiting")}
+                </span>
               </span>
             </div>
 
@@ -234,7 +236,7 @@ export function RunnerSetupModal({
               }`}
             >
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
-                Projeler
+                {t("setup.summaryProjects")}
               </span>
               <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
                 {projectCount > 0 ? (
@@ -243,7 +245,9 @@ export function RunnerSetupModal({
                   <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
                 )}
                 <span className="truncate">
-                  {projectCount > 0 ? `${projectCount} tanımlı` : "Proje ekle"}
+                  {projectCount > 0
+                    ? `${projectCount} ${t("setup.summaryDefined")}`
+                    : t("setup.summaryAddProject")}
                 </span>
               </span>
             </div>
@@ -256,7 +260,7 @@ export function RunnerSetupModal({
               }`}
             >
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
-                Bulut API
+                {t("setup.summaryCloudApi")}
               </span>
               <span className="text-[11px] font-extrabold inline-flex items-center gap-1 truncate">
                 {hasGeminiKey ? (
@@ -264,7 +268,9 @@ export function RunnerSetupModal({
                 ) : (
                   <Sparkles className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
                 )}
-                <span className="truncate">{hasGeminiKey ? "Gemini var" : "Opsiyonel"}</span>
+                <span className="truncate">
+                  {hasGeminiKey ? t("setup.summaryGeminiSet") : t("setup.summaryOptional")}
+                </span>
               </span>
             </div>
           </div>
@@ -298,7 +304,7 @@ export function RunnerSetupModal({
           {/* ADIM 1: Node.js */}
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-black text-cyan-400">ADIM 1 • Node.js 18+ Kontrolü</span>
+              <span className="text-xs font-black text-cyan-400">{t("setup.step1Title")}</span>
               <a
                 href="https://nodejs.org"
                 target="_blank"
@@ -310,9 +316,7 @@ export function RunnerSetupModal({
               </a>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              {osTab === "mac"
-                ? "Mac Terminal uygulamasını açın. Node.js yüklü değilse nodejs.org'dan LTS sürümünü kurun."
-                : "Windows Başlat menüsünden PowerShell'i açın. Node.js yüklü değilse nodejs.org'dan LTS sürümünü kurun."}
+              {osTab === "mac" ? t("setup.step1Mac") : t("setup.step1Win")}
             </p>
           </div>
 
@@ -320,18 +324,17 @@ export function RunnerSetupModal({
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-              <span className="text-xs font-black text-purple-300">
-                ADIM 2 • Yerel Yapay Zeka CLI (En Az Biri)
-              </span>
+              <span className="text-xs font-black text-purple-300">{t("setup.step2Title")}</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Bilgisayarınızda kurulu olan AI CLI aracı otomatik algılanır ve mevcut aboneliğinizi kullanarak{" "}
-              <strong className="text-emerald-300">ek API maliyeti olmadan</strong> kod geliştirir:
+              {t("setup.step2DescPrefix")}{" "}
+              <strong className="text-emerald-300">{t("setup.step2DescHighlight")}</strong>{" "}
+              {t("setup.step2DescSuffix")}
             </p>
             <div className="space-y-2 text-[11px]">
               <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200">
                 <span className="font-bold text-cyan-300">• Antigravity CLI (`agy`):</span>{" "}
-                Antigravity uygulaması kuruluysa hazırdır (Gemini 4 Neon, Hydrogen, 3.8 Flash, Claude 5.5).
+                {t("setup.step2Agy")}
               </div>
               <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -342,7 +345,7 @@ export function RunnerSetupModal({
                   type="button"
                   onClick={() => copyText("claude-cli", cliInstallClaude)}
                   className="min-w-[44px] min-h-[44px] px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center shrink-0 cursor-pointer"
-                  title="Kopyala"
+                  title={t("setup.copyBtnTitle")}
                 >
                   {copiedId === "claude-cli" ? (
                     <Check className="w-4 h-4 text-emerald-400" />
@@ -360,7 +363,7 @@ export function RunnerSetupModal({
                   type="button"
                   onClick={() => copyText("gemini-cli", cliInstallGemini)}
                   className="min-w-[44px] min-h-[44px] px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center shrink-0 cursor-pointer"
-                  title="Kopyala"
+                  title={t("setup.copyBtnTitle")}
                 >
                   {copiedId === "gemini-cli" ? (
                     <Check className="w-4 h-4 text-emerald-400" />
@@ -377,12 +380,12 @@ export function RunnerSetupModal({
             <div className="flex items-center gap-1.5">
               <Terminal className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <span className="text-xs font-black text-cyan-300">
-                ADIM 3 • Tek Komutla İndir ve Başlat ({osTab === "mac" ? "Terminal" : "PowerShell"})
+                {t("setup.step3Title")} ({osTab === "mac" ? "Terminal" : "PowerShell"})
               </span>
             </div>
             <p className="text-xs text-slate-300">
-              Kişisel eşleşme anahtarınız aşağıya otomatik yerleştirildi. Kopyalayıp{" "}
-              {osTab === "mac" ? "Terminal'e" : "PowerShell'e"} yapıştırmanız yeterli:
+              {t("setup.step3DescPrefix")}{" "}
+              {osTab === "mac" ? t("setup.step3DescMac") : t("setup.step3DescWin")}
             </p>
             <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 font-mono text-[11px] text-cyan-300 break-all select-all">
               {quickStartCmd}
@@ -395,12 +398,12 @@ export function RunnerSetupModal({
               {copiedId === "quick-start" ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Komut Kopyalandı!</span>
+                  <span>{t("setup.cmdCopied")}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Tek Komutu Kopyala</span>
+                  <span>{t("setup.copyCmd")}</span>
                 </>
               )}
             </button>
@@ -410,15 +413,10 @@ export function RunnerSetupModal({
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 space-y-2.5">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="text-xs font-black text-emerald-300">
-                ADIM 4 • 7/24 & Tatil Modu (Uyku Engelleme + Otomatik Yeniden Başlatma)
-              </span>
+              <span className="text-xs font-black text-emerald-300">{t("setup.step4Title")}</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Bilgisayar başından günlerce ayrılacaksanız bu komutu kullanın.{" "}
-              {osTab === "mac"
-                ? "Mac'i uykuya geçirmez (caffeinate) ve ağ kopsa bile 3 sn içinde yeniden bağlanır."
-                : "Windows'u uykuya geçirmez ve bağlantı kopsa bile 3 sn içinde otomatik yeniden bağlanır."}
+              {osTab === "mac" ? t("setup.step4Mac") : t("setup.step4Win")}
             </p>
             <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 font-mono text-[11px] text-emerald-300 break-all select-all">
               {vacationCmd}
@@ -431,12 +429,12 @@ export function RunnerSetupModal({
               {copiedId === "vacation-start" ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>7/24 Komutu Kopyalandı!</span>
+                  <span>{t("setup.vacationCmdCopied")}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>7/24 Uyku Korumalı Komutu Kopyala</span>
+                  <span>{t("setup.copyVacationCmd")}</span>
                 </>
               )}
             </button>
@@ -448,7 +446,7 @@ export function RunnerSetupModal({
               <div className="flex items-center gap-1.5 min-w-0">
                 <FolderGit2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="text-xs font-black text-amber-300 truncate">
-                  ADIM 5 • Proje Klasörünü Tanımla
+                  {t("setup.step5Title")}
                 </span>
               </div>
               <span
@@ -458,23 +456,24 @@ export function RunnerSetupModal({
                     : "bg-amber-500/15 text-amber-300 border border-amber-500/35"
                 }`}
               >
-                {projectCount > 0 ? `✅ ${projectCount} Proje` : "ZORUNLU"}
+                {projectCount > 0
+                  ? `✅ ${projectCount} ${t("setup.step5ProjectWord")}`
+                  : t("setup.step5Required")}
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Runner bağlandıktan sonra yapay zekanın hangi klasörde çalışacağını belirtmek için{" "}
-              <strong className="text-white">Projelerim</strong> ekranından yerel dizin yolunu tanımlayın:
+              {t("setup.step5DescPrefix")}{" "}
+              <strong className="text-white">{t("setup.step5DescHighlight")}</strong>{" "}
+              {t("setup.step5DescSuffix")}
             </p>
             <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 space-y-1">
               <div className="break-all">
-                <span className="text-slate-400 font-semibold">Örnek Yerel Dizin:</span>{" "}
+                <span className="text-slate-400 font-semibold">{t("setup.step5ExampleLabel")}</span>{" "}
                 <code className="text-cyan-300 font-mono">
-                  {osTab === "mac" ? "/Users/adiniz/Work/Projem" : "C:\\Projects\\Projem"}
+                  {osTab === "mac" ? t("setup.step5ExampleMac") : t("setup.step5ExampleWin")}
                 </code>
               </div>
-              <p className="text-slate-400">
-                İsteğe bağlı olarak GitHub repo URL&apos;si ve canlıya dağıtım (deploy) komutunu da ekleyebilirsiniz.
-              </p>
+              <p className="text-slate-400">{t("setup.step5OptionalNote")}</p>
             </div>
             <Link
               href="/projects"
@@ -482,7 +481,7 @@ export function RunnerSetupModal({
               className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-200 font-extrabold text-xs flex items-center justify-center gap-2 transition-all"
             >
               <FolderGit2 className="w-4 h-4 shrink-0" />
-              <span>Projelerim Ekranına Git</span>
+              <span>{t("setup.goToProjects")}</span>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </Link>
           </div>
@@ -493,7 +492,7 @@ export function RunnerSetupModal({
               <div className="flex items-center gap-1.5 min-w-0">
                 <KeyRound className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                 <span className="text-xs font-black text-purple-300 truncate">
-                  ADIM 6 • Kasa &amp; Entegrasyonlar
+                  {t("setup.step6Title")}
                 </span>
               </div>
               <span
@@ -503,17 +502,19 @@ export function RunnerSetupModal({
                     : "bg-purple-500/15 text-purple-300 border border-purple-500/35"
                 }`}
               >
-                {hasGeminiKey ? "✅ Gemini Tanımlı" : "OPSİYONEL"}
+                {hasGeminiKey ? t("setup.step6GeminiSet") : t("setup.step6Optional")}
               </span>
             </div>
             <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
               <p>
-                • <strong className="text-emerald-300">Yerel Ajan için API gerekmez ($0):</strong>{" "}
-                Üstten <strong className="text-white">🖥️ Yerel Ajan</strong> seçiliyse tüm işler bilgisayarınızdaki CLI ile ek maliyetsiz çalışır.
+                • <strong className="text-emerald-300">{t("setup.step6Item1Title")}</strong>{" "}
+                {t("setup.step6Item1BodyPrefix")}{" "}
+                <strong className="text-white">{t("setup.step6Item1BodyHighlight")}</strong>{" "}
+                {t("setup.step6Item1BodySuffix")}
               </p>
               <p>
-                • <strong className="text-purple-200">Bulut Yedeği (İsteğe Bağlı):</strong>{" "}
-                Bilgisayarınız kapalıyken de sohbet etmek isterseniz{" "}
+                • <strong className="text-purple-200">{t("setup.step6Item2Title")}</strong>{" "}
+                {t("setup.step6Item2BodyPrefix")}{" "}
                 <a
                   href="https://aistudio.google.com/apikey"
                   target="_blank"
@@ -523,11 +524,11 @@ export function RunnerSetupModal({
                   <span>aistudio.google.com</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>{" "}
-                adresinden ücretsiz Gemini API anahtarı alıp Kasa&apos;ya (AES-256 şifreli) kaydedebilirsiniz.
+                {t("setup.step6Item2BodySuffix")}
               </p>
               <p>
-                • <strong className="text-slate-200">Runner Anahtarı (Token):</strong>{" "}
-                Kişisel anahtarınız otomatik oluşturuldu; başka bir bilgisayara geçerseniz Kasa ekranından yenileyebilirsiniz.
+                • <strong className="text-slate-200">{t("setup.step6Item3Title")}</strong>{" "}
+                {t("setup.step6Item3Body")}
               </p>
             </div>
             <Link
@@ -536,7 +537,7 @@ export function RunnerSetupModal({
               className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/35 text-purple-200 font-extrabold text-xs flex items-center justify-center gap-2 transition-all"
             >
               <KeyRound className="w-4 h-4 shrink-0" />
-              <span>Kasa &amp; Entegrasyonlara Git</span>
+              <span>{t("setup.goToSettings")}</span>
               <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </Link>
           </div>
@@ -545,4 +546,3 @@ export function RunnerSetupModal({
     </div>
   );
 }
-

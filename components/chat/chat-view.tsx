@@ -32,6 +32,7 @@ import {
   LOCAL_CLI_MODELS,
   isLocalCliModel,
   type LocalCliMode,
+  type ChatAttachment,
 } from "@/lib/runner/local-cli";
 import { useTranslation } from "@/lib/i18n/context";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ interface Message {
   id: string;
   role: "user" | "assistant" | "system" | "runner";
   content: string;
+  attachments?: ChatAttachment[];
   timestamp: Date;
   approval?: {
     id: string;
@@ -88,7 +90,7 @@ export function ChatView({
   runnerDeviceName = "",
   hasGeminiKey = false,
 }: ChatViewProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [projects] = useState<Project[]>(initialProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     initialProjects.find((p) => p.slug === "devstudio")?.id ||
@@ -114,6 +116,8 @@ export function ChatView({
 
   const [input, setInput] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,8 +125,7 @@ export function ChatView({
     {
       id: "welcome",
       role: "assistant",
-      content:
-        "👋 Merhaba! DevStudio mobil yapay zeka stüdyosuna hoş geldin. Sol panelden projeyi seç, üstten Yerel Ajan (PC/Mac CLI) veya Bulut modelini belirle ve serbestçe geliştirme yap!",
+      content: t("chat.welcomeMsg"),
       timestamp: new Date(),
     },
   ]);
@@ -166,9 +169,9 @@ export function ChatView({
           setActiveLocalJob(null);
           await loadProjectChat(selectedProjectId, activeSessionId);
           if (statusRes.status === "completed") {
-            toast.success("Yerel Ajan yanıtladı!");
+            toast.success(t("chat.localJobDoneToast"));
           } else {
-            toast.warning("Yerel Ajan uyarı/hata ile tamamlandı");
+            toast.warning(t("chat.localJobWarnToast"));
           }
         }
       } catch (e) {
@@ -204,7 +207,7 @@ export function ChatView({
         ) {
           clearInterval(interval);
           await loadProjectChat(selectedProjectId, activeSessionId);
-          toast.success("İşlem tamamlandı!");
+          toast.success(t("chat.taskDoneToast"));
         }
       } catch (e) {
         console.error("Poller error:", e);
@@ -251,6 +254,7 @@ export function ChatView({
               id: m.id,
               role: m.role,
               content: m.content,
+              attachments: Array.isArray(m.attachments) ? m.attachments : [],
               timestamp: new Date(m.timestamp),
               approval: m.approval || undefined,
             }))
@@ -261,7 +265,10 @@ export function ChatView({
             {
               id: "welcome_" + projId,
               role: "assistant",
-              content: `🚀 **${prj?.name || "Proje"}** çalışma ortamına bağlandın.\n\nMac dizini: \`${prj?.localPath}\`\n\nBu proje hakkında sormak istediğin soruları, mimari fikirleri veya dosya/terminal işlemlerini serbestçe yazabilirsin.`,
+              content:
+                locale === "en"
+                  ? `🚀 Connected to **${prj?.name || "Project"}** workspace.\n\nLocal path: \`${prj?.localPath}\`\n\nFeel free to ask questions, discuss architecture, or request code and terminal actions.`
+                  : `🚀 **${prj?.name || "Proje"}** çalışma ortamına bağlandın.\n\nMac/PC dizini: \`${prj?.localPath}\`\n\nBu proje hakkında sormak istediğin soruları, mimari fikirleri veya dosya/terminal işlemlerini serbestçe yazabilirsin.`,
               timestamp: new Date(),
             },
           ]);
@@ -291,34 +298,156 @@ export function ChatView({
           {
             id: "new_welcome",
             role: "assistant",
-            content: `✨ **${prj?.name}** için yeni ve temiz bir sohbet oturumu başlatıldı! Ne üzerinde çalışmak istersin?`,
+            content: `✨ **${prj?.name}** ${t("chat.newSessionWelcome")}`,
             timestamp: new Date(),
           },
         ]);
-        toast.success("Yeni sohbet oturumu açıldı");
+        toast.success(t("chat.newSessionOpenedToast"));
       }
     } catch (e: any) {
-      toast.error("Oturum açılamadı: " + e.message);
+      toast.error(`${t("chat.sessionOpenErrorToast")}: ` + e.message);
     }
+  };
+
+  // Seçilen dosya / fotoğrafı temizle
+  const clearSelectedFile = () => {
+    if (selectedPreviewUrl) {
+      URL.revokeObjectURL(selectedPreviewUrl);
+    }
+    setSelectedFile(null);
+    setSelectedPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Dosya seçimi
+  const handleFileSelect = (file: File | null) => {
+    if (selectedPreviewUrl) {
+      URL.revokeObjectURL(selectedPreviewUrl);
+    }
+    if (!file) {
+      setSelectedFile(null);
+      setSelectedPreviewUrl(null);
+      return;
+    }
+    if (!file.type.startsWith("image/") && file.size > 2.5 * 1024 * 1024) {
+      toast.error(t("chat.attachmentSizeError"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setSelectedFile(file);
+    if (file.type.startsWith("image/")) {
+      setSelectedPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setSelectedPreviewUrl(null);
+    }
+  };
+
+  // Görselleri mobil dostu boyuta sıkıştır, diğer dosyaları base64 dataUrl'a çevir
+  const prepareAttachment = async (file: File): Promise<ChatAttachment> => {
+    const readAsDataUrl = (blob: Blob): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Dosya okunamadı"));
+        reader.readAsDataURL(blob);
+      });
+
+    if (file.type.startsWith("image/")) {
+      try {
+        const rawUrl = await readAsDataUrl(file);
+        const compressed = await new Promise<string>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 1400;
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              const ratio = Math.min(maxDim / width, maxDim / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              resolve(rawUrl);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+          };
+          img.onerror = () => resolve(rawUrl);
+          img.src = rawUrl;
+        });
+
+        const finalMime = compressed.startsWith("data:image/jpeg")
+          ? "image/jpeg"
+          : file.type || "image/png";
+        return {
+          name: file.name,
+          mimeType: finalMime,
+          size: file.size,
+          dataUrl: compressed,
+        };
+      } catch {
+        const fallbackUrl = await readAsDataUrl(file);
+        return {
+          name: file.name,
+          mimeType: file.type || "image/png",
+          size: file.size,
+          dataUrl: fallbackUrl,
+        };
+      }
+    }
+
+    const dataUrl = await readAsDataUrl(file);
+    return {
+      name: file.name,
+      mimeType: file.type || "application/octet-stream",
+      size: file.size,
+      dataUrl,
+    };
   };
 
   // Mesaj Gönder
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || isSending || activeLocalJob) return;
+    if ((!input.trim() && !selectedFile) || isSending || activeLocalJob) return;
 
     const userText = input.trim();
+    const fileToSend = selectedFile;
+    setIsSending(true);
+
+    let preparedAttachments: ChatAttachment[] = [];
+    if (fileToSend) {
+      try {
+        const prepared = await prepareAttachment(fileToSend);
+        preparedAttachments = [prepared];
+      } catch (err: any) {
+        toast.error(err?.message || t("chat.attachmentPrepareError"));
+        setIsSending(false);
+        return;
+      }
+    }
+
+    const displayContent =
+      userText || (preparedAttachments.length > 0 ? t("chat.attachmentFallbackMsg") : "");
+
+    // Mesaj kutusunu ve seçili eki hemen temizle
     setInput("");
+    clearSelectedFile();
 
     const tempId = "usr_" + Date.now();
     const tempUserMsg: Message = {
       id: tempId,
       role: "user",
-      content: userText,
+      content: displayContent,
+      attachments: preparedAttachments,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, tempUserMsg]);
-    setIsSending(true);
 
     try {
       const res = await fetch("/api/chat", {
@@ -329,7 +458,8 @@ export function ChatView({
           sessionId: activeSessionId,
           model: selectedModel,
           localMode,
-          content: userText,
+          content: displayContent,
+          attachments: preparedAttachments,
         }),
       });
 
@@ -338,6 +468,7 @@ export function ChatView({
         if (res.status === 409 && errJson.code === "RUNNER_OFFLINE") {
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           setInput(userText);
+          if (fileToSend) handleFileSelect(fileToSend);
           setRunnerOnline(false);
           toast.error(errJson.error || "PC / Mac Runner çevrimdışı!");
           setSetupModalOpen(true);
@@ -359,7 +490,7 @@ export function ChatView({
           status: data.localJob.status,
           startedAt: Date.now(),
         });
-        toast.info("Görev PC / Mac Yerel Ajanına iletildi...");
+        toast.info(t("chat.localJobQueuedToast"));
         return;
       }
 
@@ -383,7 +514,7 @@ export function ChatView({
         setMessages((prev) => [...prev, assistantMsg]);
       }
     } catch (err: any) {
-      toast.error("Mesaj iletilemedi: " + err.message);
+      toast.error(`${t("chat.sendFailedToast")}: ` + err.message);
     } finally {
       setIsSending(false);
     }
@@ -410,7 +541,7 @@ export function ChatView({
             : m
         )
       );
-      toast.info("Komut Mac Runner'a iletildi, çubuk çalışıyor...");
+      toast.info(t("chat.cmdSentToast"));
 
       // Runner ve Sunucu Otonom Analizini yokla (REST polling)
       const pollTimer = setInterval(async () => {
@@ -440,7 +571,7 @@ export function ChatView({
 
             // 2. Projenin güncel sohbet geçmişini tek seferde sunucudan çekip ekrana koy!
             await loadProjectChat(selectedProjectId, activeSessionId);
-            toast.success("Komut ve analiz tek seferde tamamlandı!");
+            toast.success(t("chat.cmdCompletedToast"));
           }
         } catch (e) {
           console.error("Poller fetch error:", e);
@@ -449,7 +580,7 @@ export function ChatView({
 
       setTimeout(() => clearInterval(pollTimer), 600000);
     } catch (err: any) {
-      toast.error("Onay iletilemedi: " + err.message);
+      toast.error(`${t("chat.approveFailedToast")}: ` + err.message);
     }
   };
 
@@ -471,9 +602,9 @@ export function ChatView({
             : m
         )
       );
-      toast.info("İşlem reddedildi.");
+      toast.info(t("chat.cmdRejectedToast"));
     } catch (err: any) {
-      toast.error("Reddedilemedi: " + err.message);
+      toast.error(`${t("chat.rejectFailedToast")}: ` + err.message);
     }
   };
 
@@ -502,9 +633,9 @@ export function ChatView({
       copyTimeoutRef.current = setTimeout(() => {
         setCopiedMsgId((prev) => (prev === msgId ? null : prev));
       }, 2000);
-      toast.success(isRunner ? "Terminal çıktısı kopyalandı!" : "AI yanıtı kopyalandı!");
+      toast.success(isRunner ? t("chat.copiedRunnerToast") : t("chat.copiedAiToast"));
     } catch {
-      toast.error("Kopyalama başarısız oldu");
+      toast.error(t("chat.copyFailedToast"));
     }
   };
 
@@ -536,7 +667,7 @@ export function ChatView({
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FolderGit2 className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-sm font-black text-white tracking-wide">PROJELERİM</h2>
+            <h2 className="text-sm font-black text-white tracking-wide">{t("chat.myProjectsHeader")}</h2>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -549,7 +680,7 @@ export function ChatView({
         {/* Proje Sekmeleri */}
         <div className="p-3 space-y-2 border-b border-slate-800/80">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">
-            Aktif Çalışma Alanı
+            {t("chat.activeWorkspace")}
           </span>
           <div className="space-y-1">
             {projects.map((p) => {
@@ -581,13 +712,13 @@ export function ChatView({
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           <div className="flex items-center justify-between px-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Sohbet Geçmişi
+              {t("chat.chatHistory")}
             </span>
             <button
               onClick={handleNewSession}
               className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" /> Yeni
+              <Plus className="w-3.5 h-3.5" /> {t("chat.newChat")}
             </button>
           </div>
 
@@ -614,7 +745,7 @@ export function ChatView({
             })}
 
             {sessions.length === 0 && (
-              <p className="text-[11px] text-slate-500 px-2 italic">Henüz geçmiş sohbet yok</p>
+              <p className="text-[11px] text-slate-500 px-2 italic">{t("chat.noHistory")}</p>
             )}
           </div>
         </div>
@@ -628,7 +759,7 @@ export function ChatView({
               }`}
             />
             <span className="text-[11px] font-bold text-slate-300 truncate" title={deviceName}>
-              {runnerOnline ? "Runner Online" : "Runner Çevrimdışı"}
+              {runnerOnline ? t("chat.runnerOnlineShort") : t("chat.runnerOfflineShort")}
             </span>
           </div>
           <button
@@ -637,7 +768,7 @@ export function ChatView({
             className="min-h-[36px] px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[11px] font-bold text-cyan-300 hover:bg-cyan-500/25 inline-flex items-center gap-1 cursor-pointer shrink-0"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Kurulum</span>
+            <span>{t("chat.setupShort")}</span>
           </button>
         </div>
       </div>
@@ -652,8 +783,8 @@ export function ChatView({
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center transition-all cursor-pointer z-10"
-              title="Projeler Menüsü"
-              aria-label="Projeler Menüsü"
+              title={t("chat.projectsMenu")}
+              aria-label={t("chat.projectsMenu")}
             >
               {sidebarOpen ? <PanelLeftClose className="w-4 h-4 text-cyan-400" /> : <PanelLeftOpen className="w-4 h-4 text-slate-300" />}
             </button>
@@ -681,25 +812,25 @@ export function ChatView({
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
-                aria-label="Yapay Zeka Modeli Seç"
+                aria-label={t("chat.selectAiModel")}
                 className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-200 focus:outline-none cursor-pointer pr-1 w-full truncate"
               >
-                <optgroup label="🖥️ Yerel Ajan (PC / Mac CLI • $0 Ek Maliyet)" className="bg-slate-900 text-cyan-300">
+                <optgroup label={t("chat.localModelsGroup")} className="bg-slate-900 text-cyan-300">
                   {LOCAL_CLI_MODELS.map((m) => (
                     <option key={m.value} value={m.value} className="bg-slate-900 text-white">
                       {m.shortLabel}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="☁️ Bulut API Modelleri" className="bg-slate-900 text-purple-300">
+                <optgroup label={t("chat.cloudModelsGroup")} className="bg-slate-900 text-purple-300">
                   <option value="gemini-3-flash-preview" className="bg-slate-900 text-white">
-                    🚀 3-Flash (Bulut)
+                    🚀 3-Flash ({t("chat.cloudTag")})
                   </option>
                   <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
-                    🌟 3.8 Flash (Bulut)
+                    🌟 3.8 Flash ({t("chat.cloudTag")})
                   </option>
                   <option value="gemini-flash-lite-latest" className="bg-slate-900 text-white">
-                    ⚡ Flash Lite (Hızlı)
+                    ⚡ Flash Lite ({t("chat.fastTag")})
                   </option>
                   <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">
                     🧠 3.5 Flash Lite
@@ -712,8 +843,8 @@ export function ChatView({
             <button
               type="button"
               onClick={() => setSetupModalOpen(true)}
-              title="PC / Mac Runner Kurulum Rehberi"
-              aria-label="PC / Mac Runner Kurulum Rehberi"
+              title={t("chat.setupGuideTitle")}
+              aria-label={t("chat.setupGuideTitle")}
               className="relative min-w-[44px] min-h-[44px] rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 flex items-center justify-center shrink-0 transition-all cursor-pointer"
             >
               <Laptop className="w-4 h-4" />
@@ -734,9 +865,7 @@ export function ChatView({
                 type="button"
                 onClick={() => setLocalMode((prev) => (prev === "plan" ? "auto" : "plan"))}
                 title={
-                  localMode === "plan"
-                    ? "Salt-okunur Plan kilidi açık (Geliştir'e dönmek için dokun)"
-                    : "Yalnızca inceleme/tasarım için Plan kilidini aç"
+                  localMode === "plan" ? t("chat.planTitleOn") : t("chat.planTitleOff")
                 }
                 className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold inline-flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
                   localMode === "plan"
@@ -745,13 +874,13 @@ export function ChatView({
                 }`}
               >
                 <Shield className="w-3.5 h-3.5 shrink-0" />
-                <span>{localMode === "plan" ? "Plan Açık" : "Plan"}</span>
+                <span>{localMode === "plan" ? t("chat.planActiveBtn") : t("chat.planBtn")}</span>
               </button>
 
               {localMode === "auto" && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400/90 truncate">
                   <Wrench className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Geliştir</span>
+                  <span className="truncate">{t("chat.developMode")}</span>
                 </span>
               )}
             </div>
@@ -767,7 +896,7 @@ export function ChatView({
                 }`}
               />
               <span className="truncate">
-                {runnerOnline ? "PC/Mac Hazır" : "Kurulum Rehberi"}
+                {runnerOnline ? t("chat.pcMacReady") : t("chat.setupGuideLabel")}
               </span>
             </button>
           </div>
@@ -808,6 +937,30 @@ export function ChatView({
                         : "bg-slate-900/90 border border-slate-800 text-slate-200 rounded-tl-sm whitespace-pre-wrap"
                     }`}
                   >
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mb-2.5 space-y-2 max-w-full">
+                        {msg.attachments.map((att, idx) =>
+                          att.mimeType?.startsWith("image/") && att.dataUrl ? (
+                            <div key={`${msg.id}_att_${idx}`} className="space-y-1 max-w-full">
+                              <img
+                                src={att.dataUrl}
+                                alt={att.name || "Ekli görsel"}
+                                className="max-w-full max-h-64 rounded-2xl border border-white/20 bg-slate-950/40 object-contain"
+                              />
+                              <p className="text-[11px] opacity-80 truncate">{att.name}</p>
+                            </div>
+                          ) : (
+                            <div
+                              key={`${msg.id}_att_${idx}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-950/35 border border-white/15 text-xs max-w-full"
+                            >
+                              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
                     {msg.content}
                   </div>
 
@@ -816,7 +969,7 @@ export function ChatView({
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(msg.id, msg.content, isRunner)}
-                        aria-label={isRunner ? "Terminal çıktısını kopyala" : "AI yanıtını kopyala"}
+                        aria-label={isRunner ? t("chat.copyRunnerAria") : t("chat.copyAiAria")}
                         className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer select-none ${
                           copiedMsgId === msg.id
                             ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
@@ -826,12 +979,12 @@ export function ChatView({
                         {copiedMsgId === msg.id ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Kopyalandı</span>
+                            <span>{t("chat.copied")}</span>
                           </>
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5 shrink-0" />
-                            <span>Kopyala</span>
+                            <span>{t("chat.copy")}</span>
                           </>
                         )}
                       </button>
@@ -857,7 +1010,7 @@ export function ChatView({
           {isSending && (
             <div className="flex items-center gap-2.5 text-xs text-cyan-400 italic py-2 px-3 sm:px-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/30 w-fit max-w-full">
               <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
-              <span className="truncate">DevStudio gönderiyor...</span>
+              <span className="truncate">{t("chat.sending")}</span>
             </div>
           )}
 
@@ -879,7 +1032,7 @@ export function ChatView({
                 />
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                PC / Mac üzerindeki yerel AI CLI proje dosyalarını inceliyor ve yanıtı hazırlıyor. Sayfayı yenileseniz de işlem kesilmez.
+                {t("chat.localJobRunningNote")}
               </p>
             </div>
           )}
@@ -890,25 +1043,41 @@ export function ChatView({
         {/* Mesaj Giriş Barı (Mobile-First) */}
         <div className="shrink-0 p-2.5 sm:p-4 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md flex flex-col gap-2 w-full max-w-full overflow-hidden">
           {selectedFile && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-300 w-fit max-w-full truncate">
-              <Paperclip className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-              <span className="truncate font-medium">{selectedFile.name}</span>
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-300 w-fit max-w-full">
+              {selectedPreviewUrl ? (
+                <img
+                  src={selectedPreviewUrl}
+                  alt={selectedFile.name}
+                  className="w-8 h-8 rounded-lg object-cover border border-cyan-500/40 shrink-0"
+                />
+              ) : (
+                <Paperclip className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+              )}
+              <span className="truncate font-medium max-w-[190px] sm:max-w-xs">{selectedFile.name}</span>
               <button
                 type="button"
-                onClick={() => setSelectedFile(null)}
-                className="p-1 hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1 cursor-pointer"
+                onClick={clearSelectedFile}
+                aria-label={t("chat.removeAttachment")}
+                className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
           <form onSubmit={handleSend} className="flex items-center gap-2 w-full min-w-0">
-            <input type="file" id="file-attachment" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              id="file-attachment"
+              accept="image/*,.pdf,.txt,.md,.json,.csv,.log"
+              className="hidden"
+              onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
+            />
             <button
               type="button"
-              onClick={() => document.getElementById("file-attachment")?.click()}
-              className="p-3 sm:p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0 min-w-[42px] min-h-[42px] flex items-center justify-center"
-              title="Dosya veya Fotoğraf Ekle"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 sm:p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              title={t("chat.attachFile")}
             >
               <Paperclip className="w-4 h-4" />
             </button>
@@ -918,15 +1087,19 @@ export function ChatView({
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 isLocalCliModel(selectedModel)
-                  ? `${currentProject?.name} (${localMode === "auto" ? "Geliştir" : "Plan"}) için yaz...`
-                  : `${currentProject?.name} için serbestçe yaz...`
+                  ? `${currentProject?.name || ""} ${
+                      localMode === "auto"
+                        ? t("chat.placeholderLocalDevelop")
+                        : t("chat.placeholderLocalPlan")
+                    }`.trim()
+                  : `${currentProject?.name || ""} ${t("chat.placeholderCloud")}`.trim()
               }
               disabled={isSending || Boolean(activeLocalJob)}
               className="flex-1 min-w-0 bg-slate-900/90 border border-slate-800 focus:border-cyan-500/80 rounded-2xl px-3.5 sm:px-4 py-3 sm:py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
             />
             <button
               type="submit"
-              disabled={isSending || Boolean(activeLocalJob) || !input.trim()}
+              disabled={isSending || Boolean(activeLocalJob) || (!input.trim() && !selectedFile)}
               className="px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer shrink-0 min-w-[44px] min-h-[44px]"
             >
               <Send className="w-4 h-4" />

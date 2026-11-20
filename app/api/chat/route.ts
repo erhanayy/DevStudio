@@ -4,6 +4,7 @@ import {
   isLocalCliCommand,
   isLocalCliModel,
   parseLocalCliModel,
+  type ChatAttachment,
 } from "@/lib/runner/local-cli";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -147,6 +148,7 @@ export async function GET(req: Request) {
         id: m.id,
         role: m.role,
         content: m.content,
+        attachments: Array.isArray(m.attachments) ? m.attachments : [],
         timestamp: m.createdAt,
         approval: app || null,
       };
@@ -230,9 +232,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    const { projectId, sessionId, model, content, isObservation, localMode } = body;
+    const { projectId, sessionId, model, content, isObservation, localMode, attachments } = body;
 
-    if (!projectId || !content) {
+    const sanitizedAttachments: ChatAttachment[] = Array.isArray(attachments)
+      ? attachments
+          .slice(0, 3)
+          .filter(
+            (a: any) =>
+              a &&
+              typeof a.name === "string" &&
+              typeof a.mimeType === "string" &&
+              typeof a.dataUrl === "string" &&
+              a.dataUrl.startsWith("data:") &&
+              a.dataUrl.length <= 4_500_000
+          )
+          .map((a: any) => ({
+            name: a.name.slice(0, 180),
+            mimeType: a.mimeType.slice(0, 100),
+            size: typeof a.size === "number" ? a.size : 0,
+            dataUrl: a.dataUrl,
+          }))
+      : [];
+
+    const trimmedContent = typeof content === "string" ? content.trim() : "";
+    const effectiveContent =
+      trimmedContent ||
+      (sanitizedAttachments.length > 0 ? "📎 Ekli dosya / ekran görüntüsünü incele." : "");
+
+    if (!projectId || !effectiveContent) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -254,7 +281,7 @@ export async function POST(req: Request) {
           .values({
             userId,
             projectId,
-            title: content.slice(0, 30) || "Geliştirme Sohbeti",
+            title: effectiveContent.slice(0, 30) || "Geliştirme Sohbeti",
           })
           .returning();
         currentSessionId = created[0].id;
@@ -310,7 +337,8 @@ export async function POST(req: Request) {
         .values({
           sessionId: currentSessionId,
           role: "user",
-          content,
+          content: effectiveContent,
+          attachments: sanitizedAttachments,
         })
         .returning();
 
@@ -319,8 +347,9 @@ export async function POST(req: Request) {
         engine: parsedCli.engine,
         model: parsedCli.modelId,
         mode,
-        prompt: content,
+        prompt: effectiveContent,
         sessionId: currentSessionId,
+        attachments: sanitizedAttachments.length > 0 ? sanitizedAttachments : undefined,
       });
 
       const jobDesc = `${parsedCli.displayName} • ${mode === "auto" ? "Geliştir Modu" : "Plan Modu"}`;
@@ -365,7 +394,8 @@ export async function POST(req: Request) {
         .values({
           sessionId: currentSessionId,
           role: "user",
-          content,
+          content: effectiveContent,
+          attachments: sanitizedAttachments,
         })
         .returning();
       savedUserMsg = uRes[0];
@@ -440,7 +470,20 @@ KURALLAR:
    - Analysis.md, Deployment.md, Roadmap.md gibi dokümantasyon dosyalarına yeni bir analiz, vizyon veya madde eklerken KESİNLİKLE dosyayı baştan sıfırlayarak üzerine yazma ('>' operatörü KULLANMA!).
    - Her zaman dosyanın sonuna ekleme yap ('>>' operatörü kullan) veya mevcut içeriği koruyarak sonuna iliştir. Var olan tarihi içeriği ve geçmiş analizleri ASLA ezme!`;
 
-      const promptText = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n${isObservation ? content : `Kullanıcı: ${content}`}`;
+      const promptText = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n${isObservation ? effectiveContent : `Kullanıcı: ${effectiveContent}`}`;
+
+      const geminiParts: any[] = [{ text: promptText }];
+      for (const att of sanitizedAttachments) {
+        const commaIdx = att.dataUrl.indexOf(",");
+        if (commaIdx > 0 && att.mimeType.startsWith("image/")) {
+          geminiParts.push({
+            inlineData: {
+              mimeType: att.mimeType,
+              data: att.dataUrl.slice(commaIdx + 1),
+            },
+          });
+        }
+      }
 
       for (const m of candidateModels) {
         try {
@@ -453,7 +496,7 @@ KURALLAR:
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
             body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }],
+              contents: [{ parts: geminiParts }],
               generationConfig: {
                 maxOutputTokens: 8192,
                 temperature: 0.7,

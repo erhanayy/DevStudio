@@ -11,12 +11,20 @@ export interface LocalCliApprovalRequest {
   riskLevel: "low" | "medium" | "high" | "critical";
 }
 
+export interface ChatAttachment {
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+}
+
 export interface LocalCliPayload {
   engine: LocalCliEngine;
   model: string;
   mode: LocalCliMode;
   prompt: string;
   sessionId: string;
+  attachments?: ChatAttachment[];
 }
 
 export interface LocalModelOption {
@@ -120,58 +128,111 @@ export function parseLocalCliCommand(command: string): LocalCliPayload | null {
   }
 }
 
-export function extractLocalCliApproval(rawText: string): {
+const SENSITIVE_ACTION_CMD_REGEX =
+  /\b(git\s+(?:add|commit|push|tag)\b|gcloud\s+run\s+deploy\b|vercel\s+--prod\b|firebase\s+deploy\b|docker\s+push\b|npm\s+publish\b)/i;
+
+function extractBashFallbackApproval(rawText: string): LocalCliApprovalRequest | null {
+  const codeBlockRegex = /```(?:bash|sh|shell|zsh|powershell|ps1)?\s*\n([\s\S]*?)```/gi;
+  const matches: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = codeBlockRegex.exec(rawText)) !== null) {
+    if (m[1]) matches.push(m[1].trim());
+  }
+  if (matches.length === 0) return null;
+
+  // Sondan başa kontrol et: ajanlar çalıştırılacak komutu genellikle yanıtın en sonuna yazar
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const candidate = matches[i];
+    if (!candidate || candidate.length > 2000) continue;
+    // Örnek/şablon komutlarını atla
+    if (/<TOKEN>|<URL>|dev_sec_xxxx/i.test(candidate)) continue;
+    if (SENSITIVE_ACTION_CMD_REGEX.test(candidate)) {
+      const hasDeploy = /gcloud\s+run\s+deploy|vercel\s+--prod|firebase\s+deploy/i.test(candidate);
+      const hasPush = /git\s+push/i.test(candidate);
+      const description =
+        hasDeploy && hasPush
+          ? "GitHub push ve canlı dağıtım (deploy)"
+          : hasDeploy
+          ? "Canlı ortama dağıtım (deploy)"
+          : hasPush
+          ? "GitHub deposuna gönderim (git push)"
+          : "Git / yayın işlemi yürütülecek";
+
+      return {
+        command: candidate,
+        description,
+        riskLevel: hasDeploy || hasPush ? "critical" : "high",
+      };
+    }
+  }
+  return null;
+}
+
+export function extractLocalCliApproval(
+  rawText: string,
+  options?: { allowBashFallback?: boolean }
+): {
   cleanText: string;
   approval: LocalCliApprovalRequest | null;
 } {
-  if (!rawText || !rawText.includes(LOCAL_APPROVAL_START)) {
-    return { cleanText: rawText, approval: null };
+  if (!rawText) {
+    return { cleanText: "", approval: null };
   }
 
-  const pattern = new RegExp(
-    `${LOCAL_APPROVAL_START}\\s*([\\s\\S]*?)\\s*${LOCAL_APPROVAL_END}`,
-    "m"
-  );
-  const match = rawText.match(pattern);
-  if (!match || !match[1]) {
-    return { cleanText: rawText, approval: null };
-  }
+  if (rawText.includes(LOCAL_APPROVAL_START)) {
+    const pattern = new RegExp(
+      `${LOCAL_APPROVAL_START}\\s*([\\s\\S]*?)\\s*${LOCAL_APPROVAL_END}`,
+      "m"
+    );
+    const match = rawText.match(pattern);
+    if (match && match[1]) {
+      const cleanText = rawText.replace(pattern, "").trim();
+      const inner = match[1]
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
 
-  const cleanText = rawText.replace(pattern, "").trim();
-  const inner = match[1]
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
+      try {
+        const parsed = JSON.parse(inner);
+        const command = typeof parsed?.command === "string" ? parsed.command.trim() : "";
+        if (command) {
+          const description =
+            typeof parsed?.description === "string" && parsed.description.trim()
+              ? parsed.description.trim()
+              : "PC / Mac Runner üzerinde işlem yürütülecek";
+          const allowedRisks = new Set(["low", "medium", "high", "critical"]);
+          const rawRisk =
+            typeof parsed?.riskLevel === "string" ? parsed.riskLevel.toLowerCase() : "";
+          const inferredRisk: "low" | "medium" | "high" | "critical" =
+            command.includes("deploy") || command.includes("push") || command.includes("rm")
+              ? "critical"
+              : command.includes("build") || command.includes("install")
+              ? "high"
+              : "medium";
+          const riskLevel = allowedRisks.has(rawRisk)
+            ? (rawRisk as "low" | "medium" | "high" | "critical")
+            : inferredRisk;
 
-  try {
-    const parsed = JSON.parse(inner);
-    const command = typeof parsed?.command === "string" ? parsed.command.trim() : "";
-    if (!command) {
-      return { cleanText, approval: null };
+          return {
+            cleanText,
+            approval: { command, description, riskLevel },
+          };
+        }
+      } catch {
+        // Yapısal JSON ayrıştırılamazsa aşağıdaki bash yedeğine düş
+      }
     }
-    const description =
-      typeof parsed?.description === "string" && parsed.description.trim()
-        ? parsed.description.trim()
-        : "PC / Mac Runner üzerinde işlem yürütülecek";
-    const allowedRisks = new Set(["low", "medium", "high", "critical"]);
-    const rawRisk = typeof parsed?.riskLevel === "string" ? parsed.riskLevel.toLowerCase() : "";
-    const inferredRisk: "low" | "medium" | "high" | "critical" =
-      command.includes("deploy") || command.includes("push") || command.includes("rm")
-        ? "critical"
-        : command.includes("build") || command.includes("install")
-        ? "high"
-        : "medium";
-    const riskLevel = allowedRisks.has(rawRisk)
-      ? (rawRisk as "low" | "medium" | "high" | "critical")
-      : inferredRisk;
-
-    return {
-      cleanText,
-      approval: { command, description, riskLevel },
-    };
-  } catch {
-    return { cleanText: rawText, approval: null };
   }
+
+  // Yedek katman: Ajan özel etiketi unutsa bile kritik git/deploy bash bloğunu yakala
+  if (options?.allowBashFallback) {
+    const fallback = extractBashFallbackApproval(rawText);
+    if (fallback) {
+      return { cleanText: rawText, approval: fallback };
+    }
+  }
+
+  return { cleanText: rawText, approval: null };
 }
 

@@ -134,7 +134,9 @@ export async function POST(req: Request) {
                 ? ` • ${payload.durationSeconds}s`
                 : "";
 
-            const extracted = extractLocalCliApproval(cleanOutput);
+            const extracted = extractLocalCliApproval(cleanOutput, {
+              allowBashFallback: (payload?.mode || parsedMeta?.mode) !== "plan",
+            });
             const displayOutput = extracted.cleanText;
 
             const changedFiles: string[] = Array.isArray(payload?.changedFiles)
@@ -192,11 +194,23 @@ export async function POST(req: Request) {
           const projectPath = currentProject?.localPath || "";
           const deployCmd = currentProject?.deployCommand || "";
 
+          // Uzun deploy/build çıktılarındaki spinner (\r) gürültüsünü temizle ve mobil için son 4000 karakteri koru
+          const sanitizedOutput = cleanOutput
+            .replace(/\r[^\n]*/g, "")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+          const compactOutput =
+            sanitizedOutput.length > 4000
+              ? `... (önceki ${sanitizedOutput.length - 4000} karakter kısaltıldı)\n` +
+                sanitizedOutput.slice(-4000)
+              : sanitizedOutput;
+          const runnerLabel = runner.deviceName || "PC / Mac";
+
           // Runner çıktısını chat_messages tablosuna ekle
           await db.insert(chatMessages).values({
             sessionId: appr.sessionId,
             role: "runner",
-            content: `⚡ **Runner Çıktısı (MacBook):**\n\`\`\`bash\n${cleanOutput || "(Çıktı boş)"}\n\`\`\`\n*Durum: ${finalExitCode === 0 ? "✅ Başarılı (0)" : "❌ Hata (" + finalExitCode + ")" }*`,
+            content: `⚡ **Runner Çıktısı (${runnerLabel}):**\n\`\`\`bash\n${compactOutput || "(Çıktı boş)"}\n\`\`\`\n*Durum: ${finalExitCode === 0 ? "✅ Başarılı (0)" : "❌ Hata (" + finalExitCode + ")" }*`,
           });
 
           // Kullanıcı Gemini API anahtarını çöz
@@ -254,7 +268,7 @@ Mac Runner üzerinde bir terminal komutu çalıştırıldı ve çıktısı sana 
    - Komutu mutlaka tek bir \`\`\`bash ... \`\`\` kod bloğu içerisine yaz.
 4. Cümlelerini ve düşüncelerini ASLA yarım bırakma. Tam ve eksiksiz bir şekilde tamamla.`;
 
-            const obsPrompt = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n[MAC RUNNER TAMAMLANDI]:\nÇalıştırılan Komut: "${appr.command}"\nÇıkış Kodu: ${finalExitCode}\nTerminal Çıktısı:\n\`\`\`\n${cleanOutput || "(Çıktı boş)"}\n\`\`\`\n\nBu çıktıyı incele; kullanıcıya ne gördüğünü açıkla, işlemin bittiğini teyit et ve sıradaki adımı öner.`;
+            const obsPrompt = `${systemInstruction}\n\n--- SOHBET GEÇMİŞİ ---\n${historyText}\n\n[PC / MAC RUNNER TAMAMLANDI]:\nÇalıştırılan Komut: "${appr.command}"\nÇıkış Kodu: ${finalExitCode}\nTerminal Çıktısı:\n\`\`\`\n${compactOutput || "(Çıktı boş)"}\n\`\`\`\n\nBu çıktıyı incele; kullanıcıya ne gördüğünü açıkla, işlemin bittiğini teyit et ve sıradaki adımı öner.`;
 
             const candidateModels = [
               "gemini-3-flash-preview", // 200 OK veren ve hızlı çalışan model

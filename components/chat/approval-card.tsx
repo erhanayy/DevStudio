@@ -93,7 +93,7 @@ export function ApprovalCard({
       border: "border-amber-500/40",
       iconBox: "bg-amber-500/15 border-amber-500/30 text-amber-400",
       icon: <ShieldAlert className="w-4 h-4" />,
-      title: "İşlem Onayı Gerekiyor",
+      title: t("approval.pendingTitle"),
       titleColor: "text-white",
       desc: description,
     },
@@ -101,41 +101,41 @@ export function ApprovalCard({
       border: "border-cyan-500/40 shadow-cyan-950/20",
       iconBox: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400",
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
-      title: "İşlem Yürütülüyor...",
+      title: t("approval.runningTitle"),
       titleColor: "text-cyan-300",
-      desc: "PC / Mac Runner terminal üzerinde komutu icra ediyor...",
+      desc: t("approval.runningDesc"),
     },
     running: {
       border: "border-cyan-500/40 shadow-cyan-950/20",
       iconBox: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400",
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
-      title: "İşlem Yürütülüyor...",
+      title: t("approval.runningTitle"),
       titleColor: "text-cyan-300",
-      desc: "PC / Mac Runner terminal üzerinde komutu icra ediyor...",
+      desc: t("approval.runningDesc"),
     },
     completed: {
       border: "border-emerald-500/50 shadow-emerald-950/20",
       iconBox: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
       icon: <CheckCircle2 className="w-4 h-4" />,
-      title: "İşlem Tamamlandı",
+      title: t("approval.completedTitle"),
       titleColor: "text-emerald-300",
-      desc: "Komut başarıyla çalıştırıldı ve çıktısı işlendi",
+      desc: t("approval.completedDesc"),
     },
     failed: {
       border: "border-rose-500/40 shadow-rose-950/20",
       iconBox: "bg-rose-500/15 border-rose-500/30 text-rose-400",
       icon: <AlertTriangle className="w-4 h-4" />,
-      title: "İşlem Tamamlandı (Hata)",
+      title: t("approval.failedTitle"),
       titleColor: "text-rose-300",
-      desc: "Komut çalıştırıldı ancak hata döndü",
+      desc: t("approval.failedDesc"),
     },
     rejected: {
       border: "border-slate-800",
       iconBox: "bg-slate-800 border-slate-700 text-slate-400",
       icon: <XCircle className="w-4 h-4" />,
-      title: "İşlem Reddedildi",
+      title: t("approval.rejectedTitle"),
       titleColor: "text-slate-400",
-      desc: "Kullanıcı tarafından iptal edildi",
+      desc: t("approval.rejectedDesc"),
     },
   };
 
@@ -204,7 +204,7 @@ export function ApprovalCard({
           <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
             <span className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
-              <span>⚡ PC / Mac Runner çalıştırıyor... Terminal dinleniyor</span>
+              <span>{t("approval.runningBar")}</span>
             </span>
             <span className="text-[11px] font-mono text-cyan-400 font-extrabold">
               %{Math.min(progress, 95)} ({seconds}s)
@@ -220,7 +220,7 @@ export function ApprovalCard({
           </div>
 
           <p className="text-[10px] text-slate-400 text-center animate-pulse">
-            Terminal çıktısı bittiğinde yapay zeka analiziyle birlikte tek seferde basılacak...
+            {t("approval.runningWaitNote")}
           </p>
         </div>
       ) : status === "completed" ? (
@@ -228,9 +228,9 @@ export function ApprovalCard({
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>✅ Komut Başarıyla Tamamlandı</span>
+              <span>{t("approval.completedBar")}</span>
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 font-black">%100</span>
+            <span className="text-[10px] font-mono text-emerald-400 font-black">100%</span>
           </div>
           <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
             <div className="h-full bg-emerald-400 rounded-full w-full" />
@@ -241,9 +241,9 @@ export function ApprovalCard({
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span>⚠️ Komut Çalıştırıldı (İnceleme Aşağıda)</span>
+              <span>{t("approval.failedBar")}</span>
             </span>
-            <span className="text-[10px] font-mono text-amber-400 font-black">%100</span>
+            <span className="text-[10px] font-mono text-amber-400 font-black">100%</span>
           </div>
           <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
             <div className="h-full bg-amber-400 rounded-full w-full" />
@@ -252,7 +252,7 @@ export function ApprovalCard({
       ) : (
         <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
           <XCircle className="w-4 h-4 text-slate-500" />
-          <span>Bu işlem kullanıcı tarafından reddedildi.</span>
+          <span>{t("approval.rejectedBar")}</span>
         </div>
       )}
     </div>

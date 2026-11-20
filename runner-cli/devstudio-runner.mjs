@@ -328,8 +328,70 @@ function getGitChangedFiles(cwd) {
   }
 }
 
+function materializeAttachments(attachments) {
+  if (!Array.isArray(attachments) || attachments.length === 0) return [];
+  const dir = path.join(os.tmpdir(), "devstudio-attachments");
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // 24 saatten eski geçici ekleri sessizce temizle
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const entry of fs.readdirSync(dir)) {
+      try {
+        const full = path.join(dir, entry);
+        const st = fs.statSync(full);
+        if (st.mtimeMs < cutoff) fs.unlinkSync(full);
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  const saved = [];
+  for (let i = 0; i < attachments.length; i++) {
+    const att = attachments[i];
+    if (!att || typeof att.dataUrl !== "string") continue;
+    const match = att.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) continue;
+
+    const mimeType = att.mimeType || match[1] || "application/octet-stream";
+    const base64Body = match[2];
+    const safeName = (att.name || `attachment_${i + 1}`)
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 80);
+    const hasExt = /\.[a-zA-Z0-9]{1,8}$/.test(safeName);
+    const inferredExt =
+      mimeType === "image/jpeg"
+        ? ".jpg"
+        : mimeType === "image/png"
+        ? ".png"
+        : mimeType === "image/webp"
+        ? ".webp"
+        : mimeType === "application/pdf"
+        ? ".pdf"
+        : "";
+    const fileName = `${Date.now()}_${i + 1}_${hasExt ? safeName : safeName + inferredExt}`;
+    const filePath = path.join(dir, fileName);
+
+    try {
+      const buf = Buffer.from(base64Body, "base64");
+      fs.writeFileSync(filePath, buf);
+      saved.push({
+        name: att.name || fileName,
+        mimeType,
+        filePath,
+        size: buf.length,
+      });
+    } catch (err) {
+      console.warn("⚠️ Ek dosya diske yazılamadı:", err.message);
+    }
+  }
+  return saved;
+}
+
 async function runLocalCliTask(task, cliPayload) {
-  const { engine, model, mode, prompt, sessionId } = cliPayload;
+  const { engine, model, mode, prompt, sessionId, attachments } = cliPayload;
   const binary = resolveCliBinary(engine);
 
   if (!binary) {
@@ -372,7 +434,17 @@ async function runLocalCliTask(task, cliPayload) {
       ? "[DEVSTUDIO MOBİL PLAN MODU]: Yalnızca inceleme, analiz ve tasarım yap. Dosya değiştirme veya terminal komutu çalıştırma. Yanıtını Türkçe, net ve mobil ekranda okunaklı ver.\n\n"
       : `[DEVSTUDIO MOBİL GELİŞTİR MODU]: Proje içindeki AGENTS.md kurallarına uy. Kod geliştirme, dosya düzenleme ve yerel build/tip testi yapabilirsin. ANCAK \`git commit\`, \`git push\`, \`gcloud run deploy\`, \`vercel --prod\` gibi git yazma / dış ağ / canlı dağıtım komutlarını kendi CLI sandbox'ında çalıştırmaya çalışma (yıkıcı \`rm -rf\` de yapma). Kullanıcı açıkça git/push/deploy isterse, önce yerel kod/doküman düzenlemelerini ve build testini tamamla; ardından yanıtının EN SONUNA aşağıdaki bloğu ekle ki DevStudio telefon ekranına tek dokunuşluk Onay Kartı çıkarsın ve Mac/PC Runner doğrudan çalıştırsın:\n<<<DEVSTUDIO_APPROVAL>>>\n{"command":"<çalıştırılacak tam kabuk komutu>","description":"<kısa Türkçe açıklama>","riskLevel":"critical"}\n<<<END_DEVSTUDIO_APPROVAL>>>\nYanıtını Türkçe, özlü ve net ver.\n\n`;
 
-  const effectivePrompt = `${safetyPrefix}${prompt}`;
+  const savedAttachments = materializeAttachments(attachments);
+  let attachmentSection = "";
+  if (savedAttachments.length > 0) {
+    const lines = savedAttachments
+      .map((a) => `- Dosya: ${a.name} (${a.mimeType})\n  Yerel Yol: ${a.filePath}`)
+      .join("\n");
+    attachmentSection = `\n\n[KULLANICININ EKLEDİĞİ GÖRSEL / DOSYA]:\n${lines}\nLütfen yanıt vermeden önce read_file aracınla yukarıdaki mutlak dosya yolunu doğrudan oku/incele ve görseldeki/dosyadaki gerçek içeriğe göre cevap ver.`;
+    console.log(`   📎 Ek dosya(lar) yerel diske kaydedildi (${savedAttachments.length} adet)`);
+  }
+
+  const effectivePrompt = `${safetyPrefix}${prompt}${attachmentSection}`;
   const savedConvId = getSessionConversation(sessionId, engine);
 
   const buildArgs = (convId) => {

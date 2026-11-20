@@ -782,7 +782,64 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 - `npx tsc --noEmit`: **0 hata**.
 - `npm run build` (Next.js 16.1.6 Turbopack): **0 hata** (`Compiled successfully in 2.3s`, `Finished TypeScript in 1.87s`, 11/11 rota hazır).
 
+---
 
+## 25. Uçtan Uca Görsel & Dosya Eki (Attachment) Gönderimi, Sohbet Önizlemesi ve Yerel CLI Okuma Köprüsü
 
+### 25.1. Kök Neden Analizi
+- [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx) içinde ataç butonu yalnızca istemci tarafında `selectedFile` durumunu tutuyordu; `handleSend` fonksiyonu seçilen dosyayı `/api/chat` isteğine eklemiyor, gönderim sonrası seçim çipini/dosya input'unu sıfırlamıyor ve sohbet balonunda göstermiyordu.
+
+### 25.2. Uygulanan Uçtan Uca Mimari
+1. **Ortak Ek Şeması ([lib/runner/local-cli.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/runner/local-cli.ts)):**
+   - `ChatAttachment` (`name`, `mimeType`, `size`, `dataUrl`) tipi tanımlandı ve `LocalCliPayload` içine `attachments?` eklendi.
+2. **Mobil-First İstemci ([components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx)):**
+   - Seçilen görseller tarayıcıda `<canvas>` ile en fazla 1400px / %82 JPEG'e sıkıştırılır (5MB mobil ekran görüntüsü ~150KB'a düşer); metin/PDF dosyaları 2.5MB tavanla okunur.
+   - Seçim çipinde küçük görsel önizlemesi ve sıfırlama (`clearSelectedFile`) eklendi; gönder'e basıldığı an hem metin kutusu hem seçim çipi hem `<input type="file">` sıfırlanır.
+   - Ekli dosya/görsel yalnızca dosya seçiliyken dahi gönderilebilir ve anında kullanıcı sohbet balonunda (ve geçmiş yüklemelerinde) görüntülenir.
+3. **Sunucu & Veritabanı ([app/api/chat/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/chat/route.ts)):**
+   - Mevcut `chat_messages.attachments` JSONB kolonu kullanılarak ekler kalıcı kaydedilir ve `GET /api/chat` yanıtında geri döndürülür.
+   - Yerel CLI modunda ekler görev yüküne (`LocalCliPayload.attachments`), Bulut Gemini modunda ise doğrudan multimodal `inlineData` parçalarına eklenir.
+4. **Mac/PC Runner ([runner-cli/devstudio-runner.mjs](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/devstudio-runner.mjs)):**
+   - `materializeAttachments()` ile gelen ekler `os.tmpdir()/devstudio-attachments/` altına kaydedilir (24 saatten eskiler otomatik temizlenir, `git status` kirlenmez) ve Yerel CLI prompt'una mutlak yol + `read_file` okuma yönergesi eklenir.
+
+---
+
+## 26. Tam Çift Dilli (TR / EN) Arayüz & Kurulum Rehberi Uluslararasılaştırması (Full i18n)
+
+### 26.1. Problem Tespiti
+- Kullanıcı, dil seçiciden **`🇬🇧 EN`** seçilmesine rağmen Kurulum Rehberi ve ana sohbet ekranında sabit Türkçe metinlerin kaldığını bildirdi.
+- Yapılan denetimde `runner-setup-modal.tsx` dosyasında `useTranslation()` bağlanmadığı; `chat-view.tsx`, `approval-card.tsx`, `settings-view.tsx` ve `projects-view.tsx` bileşenlerinde ise çok sayıda sabit Türkçe etiket ve bildirim kaldığı doğrulandı.
+
+### 26.2. Uygulanan Değişiklikler
+1. [lib/i18n/dictionaries/tr.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/i18n/dictionaries/tr.ts) & [lib/i18n/dictionaries/en.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/i18n/dictionaries/en.ts):
+   - `chat`, `approval`, `setup`, `projects`, `settings` bölümleri birebir anahtar uyumuyla genişletildi.
+2. [components/chat/runner-setup-modal.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/runner-setup-modal.tsx):
+   - `useTranslation()` bağlandı; başlık, canlı bağlantı banner'ı, 3'lü hazırlık özeti, **ADIM 1–6**, butonlar ve kopyalama toast'ları %100 TR/EN destekli hale getirildi.
+3. [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx):
+   - Sol menü, üst mod şeridi (`Plan` / `Develop`), model seçici grupları, kopyala butonu, canlı çalışan ajan kartı, placeholder'lar, ek dosya metinleri ve tüm toast bildirimleri `t(...)` / `locale` ile çift dilli yapıldı.
+4. [components/chat/approval-card.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/approval-card.tsx):
+   - Tüm onay durum başlıkları, açıklamalar ve ilerleme çubuğu metinleri TR/EN sözlüğüne bağlandı.
+5. [app/(dashboard)/settings/settings-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/settings/settings-view.tsx) & [app/(dashboard)/projects/projects-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/(dashboard)/projects/projects-view.tsx):
+   - Kasa `$0` yerel ajan notu, `Yakında (Bulut)` / `Coming Soon (Cloud)` rozeti, `AES-256` etiketi, proje ekleme modalı ve tüm onay/toast mesajları TR/EN uyumlu hale getirildi (ek olarak `overflow-y-auto overflow-x-hidden` ve `min-h-[44px]` dokunmatik hedefler pekiştirildi).
+
+---
+
+## 27. Tak-Çalıştır Mobil Onay Kartı Yedek Yakalayıcısı & Cloud Build Çıktı Temizleyici
+
+### 27.1. Analiz ve Kök Neden
+1. **Çalışan Eski Runner Süreci:** Madde 24 (`<<<DEVSTUDIO_APPROVAL>>>`) ve Madde 25 (ek dosya desteği) dosyaya işlenmiş olmasına rağmen, Mac'te aktif çalışan `devstudio-runner.mjs` eski `v2.4.0` sürümünü bellekte tuttuğu için Yerel CLI onay kartı kuralını henüz almamıştı.
+2. **Tak-Çalıştır Dayanıklılık (Zero-Config Fallback):** Herhangi bir yerel CLI (`agy`, `claude`, `gemini`) özel `<<<DEVSTUDIO_APPROVAL>>>` etiketini unutsa ve klasik bir `` ```bash ... ``` `` bloğu yazsa bile, kullanıcının manuel `/permissions` veya `settings.json` ayarı yapmasına gerek kalmadan mobil ekrana otomatik **Onay Kartı** çıkmalıdır.
+3. **Mobil Çıktı Performansı:** `gcloud run deploy` gibi uzun komutların ürettiği 100KB+ spinner (`\r`) gürültüsü mobil sohbet balonunu yavaşlatmakta ve sabit `MacBook` etiketi Windows kullanıcılarıyla çelişmekteydi.
+
+### 27.2. Uygulanan İyileştirmeler
+1. [lib/runner/local-cli.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/lib/runner/local-cli.ts):
+   - `extractLocalCliApproval(rawText, { allowBashFallback })` fonksiyonuna ikinci katman yedek yakalayıcı (`extractBashFallbackApproval`) eklendi: `Geliştir` modunda özel etiket unutulsa dahi `git add/commit/push/tag`, `gcloud run deploy`, `vercel --prod`, `firebase deploy`, `docker push` içeren son bash bloğunu (şablon/örnek metinleri hariç tutarak) otomatik `ApprovalCard` nesnesine dönüştürür.
+2. [app/api/runner/route.ts](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/app/api/runner/route.ts):
+   - Yerel CLI tamamlama akışında `allowBashFallback: mode !== "plan"` etkinleştirildi.
+   - Terminal çıktısındaki `\r` spinner gürültüsü temizlendi, mobil sohbet balonu için son 4.000 karakter korundu ve sabit `MacBook` başlığı cihazın gerçek adına (`runner.deviceName || "PC / Mac"`) bağlandı.
+
+### 27.3. Doğrulama
+- `npm run build` (Next.js 16.1.6 Turbopack + TypeScript): **0 hata** (`Compiled successfully in 1.5s`, `Finished TypeScript in 1.5s`).
+- **GitHub & Dağıtım Durumu (Kural 2 & 3):** Madde 23–27 yerel çalışma ağacında hazır; kullanıcı onayıyla GitHub push, Cloud Run dağıtımı ve Mac'teki Runner sürecinin yeni sürüme yeniden başlatılması yapılacaktır.
 
 
