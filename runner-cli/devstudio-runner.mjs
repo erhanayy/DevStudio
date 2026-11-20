@@ -435,12 +435,14 @@ async function runLocalCliTask(task, cliPayload) {
       : `[DEVSTUDIO MOBİL GELİŞTİR MODU]: Proje içindeki AGENTS.md kurallarına uy. Kod geliştirme, dosya düzenleme ve yerel build/tip testi yapabilirsin. ANCAK \`git commit\`, \`git push\`, \`gcloud run deploy\`, \`vercel --prod\` gibi git yazma / dış ağ / canlı dağıtım komutlarını kendi CLI sandbox'ında çalıştırmaya çalışma (yıkıcı \`rm -rf\` de yapma). Kullanıcı açıkça git/push/deploy isterse, önce yerel kod/doküman düzenlemelerini ve build testini tamamla; ardından yanıtının EN SONUNA aşağıdaki bloğu ekle ki DevStudio telefon ekranına tek dokunuşluk Onay Kartı çıkarsın ve Mac/PC Runner doğrudan çalıştırsın:\n<<<DEVSTUDIO_APPROVAL>>>\n{"command":"<çalıştırılacak tam kabuk komutu>","description":"<kısa Türkçe açıklama>","riskLevel":"critical"}\n<<<END_DEVSTUDIO_APPROVAL>>>\nYanıtını Türkçe, özlü ve net ver.\n\n`;
 
   const savedAttachments = materializeAttachments(attachments);
+  const attachmentsDir =
+    savedAttachments.length > 0 ? path.dirname(savedAttachments[0].filePath) : null;
   let attachmentSection = "";
   if (savedAttachments.length > 0) {
     const lines = savedAttachments
       .map((a) => `- Dosya: ${a.name} (${a.mimeType})\n  Yerel Yol: ${a.filePath}`)
       .join("\n");
-    attachmentSection = `\n\n[KULLANICININ EKLEDİĞİ GÖRSEL / DOSYA]:\n${lines}\nLütfen yanıt vermeden önce read_file aracınla yukarıdaki mutlak dosya yolunu doğrudan oku/incele ve görseldeki/dosyadaki gerçek içeriğe göre cevap ver.`;
+    attachmentSection = `\n\n[KULLANICININ EKLEDİĞİ GÖRSEL / DOSYA]:\n${lines}\nBu ek(ler) kullanıcının bu mesajla birlikte bizzat yüklediği ekran görüntüsü/dosyadır ve çalışma alanına eklendi (--add-dir). Proje dışı izin/onay sormadan doğrudan read_file aracınla yukarıdaki mutlak dosya yolunu açıp incele ve kullanıcının yorumunu bu görsel/dosya içeriğine göre eksiksiz yanıtla.`;
     console.log(`   📎 Ek dosya(lar) yerel diske kaydedildi (${savedAttachments.length} adet)`);
   }
 
@@ -450,6 +452,9 @@ async function runLocalCliTask(task, cliPayload) {
   const buildArgs = (convId) => {
     if (engine === "agy") {
       const a = ["-p", effectivePrompt, "--output-format", "json", "--print-timeout", "540s"];
+      if (attachmentsDir) {
+        a.push("--add-dir", attachmentsDir);
+      }
       if (model && model !== "default") {
         a.push("--model", model);
       }
@@ -466,6 +471,9 @@ async function runLocalCliTask(task, cliPayload) {
 
     if (engine === "claude") {
       const a = ["-p", effectivePrompt, "--output-format", "json"];
+      if (attachmentsDir) {
+        a.push("--add-dir", attachmentsDir);
+      }
       if (mode === "plan") {
         a.push("--permission-mode", "plan");
       }

@@ -842,4 +842,27 @@ Kullanıcının laptop/MacBook başında olmadan mobil telefon üzerinden `AllTr
 - `npm run build` (Next.js 16.1.6 Turbopack + TypeScript): **0 hata** (`Compiled successfully in 1.5s`, `Finished TypeScript in 1.5s`).
 - **GitHub & Dağıtım Durumu (Kural 2 & 3):** Madde 23–27 yerel çalışma ağacında hazır; kullanıcı onayıyla GitHub push, Cloud Run dağıtımı ve Mac'teki Runner sürecinin yeni sürüme yeniden başlatılması yapılacaktır.
 
+---
+
+## 28. Yerel CLI Ek Görsel/Dosya Okuma Garantisi (`--add-dir`) & 44px Ek Kaldırma Hedefi
+
+### 28.1. Kök Neden Analizi
+- `v2.5.0` ile telefondan gönderilen ekran görüntüleri/dosyalar sohbet balonuna aktarılıp seçim çipinden temizlenmekte ve Mac/PC Runner tarafından `os.tmpdir()/devstudio-attachments/` altına yazılmaktaydı.
+- Ancak `agy` ve `claude` CLI çağrılarında **`--add-dir <attachmentsDir>`** parametresi verilmediği için, geçici klasör proje çalışma alanı dışında kalmakta; bu durum CLI sandbox engeline veya `AGENTS.md` Kural 5 (proje dışı dosya okuma) takılmasına yol açabiliyordu.
+- Ayrıca ek önizleme çipindeki `X` kaldırma butonu `32px` olarak kalmıştı (Kural 8: minimum `44px`).
+
+### 28.2. Uygulanan Değişiklikler
+1. [runner-cli/devstudio-runner.mjs](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/runner-cli/devstudio-runner.mjs):
+   - Ek dosya mevcut olduğunda `agy` ve `claude` komutlarına `--add-dir <attachmentsDir>` parametresi eklendi.
+   - Ek dosya yönergesi, kullanıcının bu mesajla yüklediği ekin çalışma alanına dahil edildiğini ve proje dışı onay sormadan doğrudan `read_file` ile okunacağını belirtecek şekilde güçlendirildi.
+2. [components/chat/chat-view.tsx](file:///Users/erhanayyildiz/Desktop/Work/DevStudio/components/chat/chat-view.tsx):
+   - Seçili ek çipindeki `X` kaldırma butonu `min-w-[44px] min-h-[44px]` dokunma hedefine yükseltildi.
+
+### 28.3. Doğrulama
+- `node --check runner-cli/devstudio-runner.mjs`: **0 hata**.
+- `npm run build` (Next.js 16.1.6 Turbopack + TypeScript): **0 hata**.
+- Yerel Mac Runner süreci yeni `--add-dir` destekli sürümle yeniden başlatıldı.
+- **GitHub & Dağıtım Durumu (Kural 2 & 3):** Kullanıcı onayı olmadan push veya Cloud Run dağıtımı yapılmadı.
+
+
 

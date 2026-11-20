@@ -1058,7 +1058,7 @@ export function ChatView({
                 type="button"
                 onClick={clearSelectedFile}
                 aria-label={t("chat.removeAttachment")}
-                className="min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1 cursor-pointer shrink-0"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-cyan-900/50 rounded-lg text-cyan-400 hover:text-white transition-all ml-1 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
