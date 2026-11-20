@@ -4,6 +4,7 @@ Bu dokümanda DevStudio projesinin Git/GitHub gönderim tarihçesi tutulacaktır
 
 | Tarih | Commit Özeti | Dal (Branch) | Onaylayan | Notlar |
 | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-20 | `feat(chat,runner): plug-and-play mobile approval bridge, bash fallback, attachments, and full TR/EN i18n` (`2d412c4`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Madde 23–27 (Tak-çalıştır mobil onay kartı köprüsü + bash yedek yakalayıcısı, görsel/dosya ekleri, Kurulum Rehberi Adım 5–6, tam TR/EN i18n ve spinner temizleyici) canlıya (`devstudio-00028-r97`) alındı ve Mac Runner yeni sürümle başlatıldı. |
 | 2026-11-19 | `feat(runner): add cross-platform Mac/Windows local CLI agent bridge and setup guide modal` (`02c5284`) | `main` | Erhan Ayyıldız | Kullanıcı onayıyla: Madde 22 (Mac + Windows Yerel CLI Ajan Köprüsü, `agy`/`claude`/`gemini` desteği, Plan/Geliştir modları, 7/24 uyku korumalı scriptler, `/api/runner/download` ve adım adım Kurulum Rehberi modalı) canlıya (`devstudio-00026-s9d`) alındı. |
 | 2026-11-19 | **🏷️ Tag / Label:** `pre-local-cli-v2.3.0` (`b29f5fd`) | `main` (Tag) | Erhan Ayyıldız | Madde 22 (Mac + Windows Çapraz Platform Yerel CLI Runner & Kurulum Rehberi) geliştirmesi öncesi güvenli geri dönüş etiketi. |
 | 2026-11-19 | **🏷️ Tag / Label:** `v2.3.0-stable` (`b53d9f7`) | `main` (Tag) | Erhan Ayyıldız | Ürünleştirme fazına geçmeden önce çalışan son kararlı sürüm (Cloud Run `devstudio-00025-cfj`) güvenli geri dönüş noktası olarak etiketlendi. |
